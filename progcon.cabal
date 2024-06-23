@@ -1,0 +1,86 @@
+cabal-version:       2.2
+name:                progcon
+version:             0.1.0
+synopsis:            ICFP Programming Contest 2024
+description:
+        Short paragraph here
+license:             MIT
+license-file:        LICENSE
+author:              JKRT team
+maintainer:          JKRT team
+copyright:           2024  JKRT team
+category:            Unclassified
+build-type:          Simple
+extra-doc-files:     README.md
+                     ChangeLog.md
+tested-with:         GHC == 9.6.5
+
+common common
+  default-language:    GHC2021
+  ghc-options:         -Wall -Wno-partial-type-signatures
+  if impl(ghc >= 8.0)
+    ghc-options:       -Wcompat
+                       -Widentities
+                       -Wincomplete-uni-patterns
+                       -Wincomplete-record-updates
+                       -Wredundant-constraints
+  if impl(ghc >= 8.2)
+    ghc-options:       -fhide-source-paths
+  if impl(ghc >= 8.4)
+    ghc-options:       -Wpartial-fields
+  if impl(ghc >= 8.10)
+    ghc-options:       -Wunused-packages
+
+  default-extensions:
+    BlockArguments
+    ImportQualifiedPost
+    LambdaCase
+    PartialTypeSignatures
+    OverloadedStrings
+    OverloadedRecordDot
+    DerivingStrategies
+    MultiWayIf
+
+executable progcon
+  import:              common
+  main-is:             Main.hs
+  other-modules:       Paths_progcon
+  hs-source-dirs:      app
+  ghc-options:         -O2 -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base < 5,
+                       progcon
+
+library
+  import:              common
+  build-depends:       base < 5
+                     , MonadRandom < 3
+                     , aeson < 3
+                     , bytestring < 3
+                     , directory < 3
+                     , extra
+                     , fmt
+                     , http-client
+                     , http-client-tls
+                     , http-conduit
+                     , http-query
+                     , http-types
+                     , rio
+                     , retry
+                     , say
+                     , scheduler
+                     , simple-cmd-args
+                     , simple-cmd
+                     , text < 3
+                     , time
+                     , vector < 3
+
+  exposed-modules:     ProgCon
+                     , ProgCon.API
+                     , ProgCon.Eval
+                     , ProgCon.GUI
+                     , ProgCon.Parser
+                     , ProgCon.Solve
+                     , ProgCon.Submit
+                     , ProgCon.Syntax
+                     , ProgCon.Utils
+  hs-source-dirs:      src
