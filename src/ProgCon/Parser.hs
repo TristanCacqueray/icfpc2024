@@ -11,7 +11,7 @@ import RIO
 
 data Expr
     = EBool Bool
-    | EInt Natural
+    | EInt Integer
     | EStr Text
     | EUnary UnaryOp Expr
     | EBinary Char Expr Expr
@@ -32,7 +32,7 @@ exprP = P.skipSpace >> p
     p =
         taggedP 'T' EBool (pure True)
             <|> taggedP 'F' EBool (pure False)
-            <|> taggedP 'I' EInt natP
+            <|> taggedP 'I' EInt intP
             <|> taggedP 'S' EStr stringP
             <|> (P.char 'U' *> unaryP)
             <|> (P.char 'B' *> binaryP)
@@ -74,6 +74,11 @@ encodeString :: Text -> Text
 encodeString message = T.cons 'S' $ T.map convertChars message
   where
     convertChars c = toEnum $ 33 + fromMaybe 0 (elemIndex c charOrder)
+
+intP :: P.Parser Integer
+intP = T.foldl' go 0 <$> asciiP
+  where
+    go acc c = acc * 94 + (fromIntegral (fromEnum c) - 33)
 
 natP :: P.Parser Natural
 natP = T.foldl' go 0 <$> asciiP

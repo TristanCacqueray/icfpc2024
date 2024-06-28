@@ -2,10 +2,12 @@ module ProgCon (main) where
 
 import Data.Text qualified as T
 import Data.Text.IO qualified as T
-import ProgCon.API qualified as API
-import ProgCon.Parser qualified as Parser
 import RIO
 import SimpleCmdArgs
+
+import ProgCon.API qualified as API
+import ProgCon.Eval qualified as Eval
+import ProgCon.Parser qualified as Parser
 
 main :: IO ()
 main = do
@@ -28,6 +30,8 @@ mainMain =
             , Subcommand "parse" "parse a message" $
                 mainParse
                     <$> (T.pack <$> strArg "MESSAGE")
+            , Subcommand "eval" "eval a message" $
+                mainEval <$> (T.pack <$> strArg "MESSAGE")
             ]
 
 mainCommunicate :: Text -> IO ()
@@ -49,3 +53,8 @@ mainEncode message = T.putStrLn (Parser.encodeString message)
 mainQuery :: Text -> IO ()
 mainQuery message = do
     mainParse =<< API.communicate (Parser.encodeString message)
+
+mainEval :: Text -> IO ()
+mainEval message = case Parser.parseExpr message of
+    Left err -> error err
+    Right expr -> print (Eval.evalExpr mempty expr)

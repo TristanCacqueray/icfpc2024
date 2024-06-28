@@ -57,6 +57,7 @@ library
                      , aeson < 3
                      , attoparsec < 42
                      , bytestring < 3
+                     , containers
                      , directory < 3
                      , extra
                      , fmt
