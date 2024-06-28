@@ -16,7 +16,7 @@ data Expr
     | EUnary UnaryOp Expr
     | EBinary Char Expr Expr
     | EIf Expr Expr Expr
-    | ELam Natural
+    | ELam Natural Expr
     | EVar Natural
     deriving (Show)
 
@@ -37,8 +37,11 @@ exprP = P.skipSpace >> p
             <|> (P.char 'U' *> unaryP)
             <|> (P.char 'B' *> binaryP)
             <|> (P.char '?' *> ifP)
-            <|> taggedP 'L' ELam natP
+            <|> (P.char 'L' *> lambdaP)
             <|> taggedP 'v' EVar natP
+
+lambdaP :: P.Parser Expr
+lambdaP = ELam <$> natP <*> exprP
 
 ifP :: P.Parser Expr
 ifP = EIf <$> exprP <*> exprP <*> exprP
