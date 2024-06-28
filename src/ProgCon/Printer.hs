@@ -6,11 +6,11 @@ import ProgCon.Parser
 
 print :: Expr -> Text
 print = \case
-  EBool bool -> error "Not implemented."
-  EInt natural -> error "Not implemented."
+  EBool _bool -> error "Not implemented."
+  EInt _natural -> error "Not implemented."
   EStr text -> "S" <> encodeString text
-  EUnary unaryOp expr -> error "Not implemented."
-  EBinary char expr1 expr2 -> error "Not implemented."
-  EIf conditional whenTrue whenFalse -> error "Not implemented."
-  ELam natural body -> error "Not implemented."
-  EVar natural -> error "Not implemented."
+  EUnary _unaryOp _expr -> error "Not implemented."
+  EBinary _char _expr1 _expr2 -> error "Not implemented."
+  EIf _conditional _whenTrue _whenFalse -> error "Not implemented."
+  ELam _natural _body -> error "Not implemented."
+  EVar _natural -> error "Not implemented."
