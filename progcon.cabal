@@ -95,6 +95,7 @@ test-suite  checks
             hs-source-dirs: test-suites/check
             main-is: Main.hs
             build-depends:
+                        , base
                         , progcon
                         , rio
                         , tasty
@@ -102,4 +103,5 @@ test-suite  checks
                         , tasty-quickcheck
                         , transformers
                         , filepath
+                        , quickcheck-instances
             default-extensions: NoImplicitPrelude
