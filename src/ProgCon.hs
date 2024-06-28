@@ -36,7 +36,9 @@ mainCommunicate message = do
 
 mainParse :: Text -> IO ()
 mainParse message = case Parser.parseExpr message of
-    Left err -> error err
+    Left err -> do
+        T.putStrLn message
+        error err
     Right expr -> case expr of
         Parser.EStr txt -> T.putStrLn txt
         _ -> print expr
