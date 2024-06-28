@@ -4,6 +4,7 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import RIO
 import SimpleCmdArgs
+import Text.Pretty.Simple qualified as Pretty
 
 import ProgCon.API qualified as API
 import ProgCon.Eval qualified as Eval
@@ -45,7 +46,7 @@ mainParse message = case Parser.parseExpr message of
         error err
     Right expr -> case expr of
         Parser.EStr txt -> T.putStrLn txt
-        _ -> print expr
+        _ -> Pretty.pPrint expr
 
 mainEncode :: Text -> IO ()
 mainEncode message = T.putStrLn (Parser.encodeString message)
@@ -57,4 +58,4 @@ mainQuery message = do
 mainEval :: Text -> IO ()
 mainEval message = case Parser.parseExpr message of
     Left err -> error err
-    Right expr -> print (Eval.evalExpr mempty expr)
+    Right expr -> Pretty.pPrint (Eval.evalExpr mempty expr)

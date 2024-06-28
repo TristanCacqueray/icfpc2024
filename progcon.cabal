@@ -75,6 +75,7 @@ library
                      , text < 3
                      , time
                      , vector < 3
+                     , pretty-simple
 
   exposed-modules:     ProgCon
                      , ProgCon.API
