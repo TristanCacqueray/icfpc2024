@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import qualified ProgCon (main)
+import ProgCon qualified (main)
 
 main :: IO ()
 main = do

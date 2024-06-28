@@ -7,7 +7,7 @@ import Fmt
 showScore :: Int -> String
 showScore s = "" +| commaizeF s |+ ""
 
-formatLogTime :: FormatTime t => t -> String
+formatLogTime :: (FormatTime t) => t -> String
 formatLogTime = formatTime defaultTimeLocale (timeFmt defaultTimeLocale)
 
 logLn :: String -> IO ()

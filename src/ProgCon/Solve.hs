@@ -1,1 +1,1 @@
-module ProgCon.Solve  where
+module ProgCon.Solve where
