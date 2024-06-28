@@ -8,6 +8,7 @@ import RIO.Text qualified as Text
 import Control.Monad.Trans.Writer.CPS
 import Data.Coerce
 import System.FilePath
+import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Text ()
 import Test.Tasty
 import Test.Tasty.Golden
@@ -30,6 +31,9 @@ main = writerMain do
           === Right (EBinary '$' (EBinary '$' (ELam 1 (EBinary '$' (ELam 2 (EBinary '$' (EVar 1) (EBinary '$' (EVar 2) (EVar 2)))) (ELam 2 (EBinary '$' (EVar 1) (EBinary '$' (EVar 2) (EVar 2)))))) (ELam 1 (ELam 2 (EIf (EBinary '=' (EVar 2) (EInt 0)) (EInt 1) (EBinary '$' (ELam 3 (EBinary '+' (EBinary '$' (EVar 1) (EVar 3)) (EBinary '$' (EVar 1) (EVar 3)))) (EBinary '-' (EVar 2) (EInt 1))))))) (EInt 4))
       writeProperty "decodeString ∘ encodeString = id" \(AppropriateText text) -> (decodeString . encodeString) text === text
       writeProperty "encodeString ∘ decodeString = id" \(AppropriateEncodedText text) -> (encodeString . decodeString) text === text
+      writeProperty "str2int ∘ int2str = id" \number -> (str2int . int2str) number === number
+      writeProperty "int2str ∘ str2int = id" \(AppropriateEncodedText text) ->
+        text == "!" || (not . Text.null) text && (fmap fst . Text.uncons) text /= Just '!' ==> (int2str . str2int) text === text
     testWriter "evaluator" do
       writeProperty "hello" do
         evalExpr

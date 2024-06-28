@@ -41,6 +41,7 @@ common common
     DerivingStrategies
     MultiWayIf
     UnicodeSyntax
+    ViewPatterns
 
 executable progcon
   import:              common

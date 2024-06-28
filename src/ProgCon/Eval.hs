@@ -20,7 +20,7 @@ evalExpr env expr = case expr of
     | Right (EInt x) <- evalExpr env e1
     , Right (EInt y) <- evalExpr env e2
     , Just intOp <- integerOp op ->
-        pure $ EInt (intOp x y)
+        pure $ intOp x y
   EBinary op e1 e2
     | Right (EInt x) <- evalExpr env e1
     , Right (EInt y) <- evalExpr env e2
@@ -58,16 +58,16 @@ evalExpr env expr = case expr of
     | Right (EBool pred') <- evalExpr env e1 -> evalExpr env (if pred' then e2 else e3)
   e -> pure e
 
-integerOp :: Char -> Maybe (Integer -> Integer -> Integer)
+integerOp :: Char -> Maybe (Natural -> Natural -> Expr)
 integerOp = \case
-  '+' -> Just (+)
-  '-' -> Just (-)
-  '*' -> Just (*)
-  '/' -> Just div
-  '%' -> Just mod
+  '+' -> Just (\x y -> EInt (x + y))
+  '-' -> Just (\x y -> if x > y then EInt (x - y) else EUnary UNeg (EInt (y - x)))
+  '*' -> Just (\x y -> EInt (x * y))
+  '/' -> Just (\x y -> EInt (x `div` y))
+  '%' -> Just (\x y -> EInt (x `mod` y))
   _ -> Nothing
 
-integerComp :: Char -> Maybe (Integer -> Integer -> Bool)
+integerComp :: Char -> Maybe (Natural -> Natural -> Bool)
 integerComp = \case
   '<' -> Just (<)
   '>' -> Just (>)

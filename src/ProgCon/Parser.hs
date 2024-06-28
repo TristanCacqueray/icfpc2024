@@ -11,7 +11,7 @@ import RIO
 
 data Expr
   = EBool Bool
-  | EInt Integer
+  | EInt Natural
   | EStr Text
   | EUnary UnaryOp Expr
   | EBinary Char Expr Expr
@@ -78,21 +78,21 @@ encodeString message = T.map convertChars message
  where
   convertChars c = toEnum $ 33 + fromMaybe 0 (elemIndex c charOrder)
 
-intP :: P.Parser Integer
+intP :: P.Parser Natural
 intP = str2int <$> asciiP
 
-str2int :: Text -> Integer
+str2int :: Text -> Natural
 str2int = T.foldl' go 0
  where
   go acc c = acc * 94 + (fromIntegral (fromEnum c) - 33)
 
-digits :: Integer -> String
+digits :: Natural -> String
 digits x = if x `div` 94 == 0 then [digit x] else digits (x `div` 94) ++ [digit (x `mod` 94)]
 
-digit :: Integer -> Char
+digit :: Natural -> Char
 digit x = toEnum (33 + fromIntegral x)
 
-int2str :: Integer -> Text
+int2str :: Natural -> Text
 int2str x = T.pack $ digits x
 
 natP :: P.Parser Natural
