@@ -45,7 +45,7 @@ mainParse message = case Parser.parseExpr message of
     T.putStrLn message
     error err
   Right expr -> case expr of
-    Parser.EStr txt -> T.putStrLn txt
+    Parser.EStr txt -> T.putStrLn (Parser.decodeString txt)
     _ -> Pretty.pPrint expr
 
 mainEncode :: Text -> IO ()
@@ -58,4 +58,6 @@ mainQuery message = do
 mainEval :: Text -> IO ()
 mainEval message = case Parser.parseExpr message of
   Left err -> error err
-  Right expr -> Pretty.pPrint (Eval.evalExpr mempty expr)
+  Right expr -> case Eval.evalExpr mempty expr of
+    Right (Parser.EStr txt) -> T.putStrLn (Parser.decodeString txt)
+    res -> Pretty.pPrint res

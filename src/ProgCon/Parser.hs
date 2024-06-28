@@ -63,7 +63,10 @@ asciiP :: P.Parser Text
 asciiP = P.takeWhile (\c -> c >= '!' && c <= '~')
 
 stringP :: P.Parser Text
-stringP = T.map convertChars <$> asciiP
+stringP = asciiP
+
+decodeString :: Text -> Text
+decodeString = T.map convertChars
  where
   convertChars c = charOrder !! (fromEnum c - 33)
 
@@ -76,9 +79,21 @@ encodeString message = T.cons 'S' $ T.map convertChars message
   convertChars c = toEnum $ 33 + fromMaybe 0 (elemIndex c charOrder)
 
 intP :: P.Parser Integer
-intP = T.foldl' go 0 <$> asciiP
+intP = str2int <$> asciiP
+
+str2int :: Text -> Integer
+str2int = T.foldl' go 0
  where
   go acc c = acc * 94 + (fromIntegral (fromEnum c) - 33)
+
+digits :: Integer -> String
+digits x = if x `div` 94 == 0 then [digit x] else digits (x `div` 94) ++ [digit (x `mod` 94)]
+
+digit :: Integer -> Char
+digit x = toEnum (33 + fromIntegral x)
+
+int2str :: Integer -> Text
+int2str x = T.pack $ digits x
 
 natP :: P.Parser Natural
 natP = T.foldl' go 0 <$> asciiP

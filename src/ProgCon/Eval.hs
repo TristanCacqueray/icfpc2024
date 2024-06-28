@@ -54,6 +54,8 @@ evalExpr env expr = case expr of
     Nothing -> Left $ "Unbound var: " <> show v <> ", in " <> show env <> ", for " <> show expr
     Just e -> evalExpr env e
   ELam v b -> ELam v <$> evalExpr env b
+  EIf e1 e2 e3
+    | Right (EBool pred') <- evalExpr env e1 -> evalExpr env (if pred' then e2 else e3)
   e -> pure e
 
 integerOp :: Char -> Maybe (Integer -> Integer -> Integer)
@@ -78,9 +80,3 @@ booleanComp = \case
   '|' -> Just (||)
   '&' -> Just (&&)
   _ -> Nothing
-
-str2int :: Text -> Integer
-str2int = undefined
-
-int2str :: Integer -> Text
-int2str = undefined
