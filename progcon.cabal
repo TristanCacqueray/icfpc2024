@@ -88,3 +88,18 @@ library
                      , ProgCon.Syntax
                      , ProgCon.Utils
   hs-source-dirs:      src
+
+test-suite  checks
+            import: common
+            type: exitcode-stdio-1.0
+            hs-source-dirs: test-suites/check
+            main-is: Main.hs
+            build-depends:
+                        , progcon
+                        , rio
+                        , tasty
+                        , tasty-golden
+                        , tasty-quickcheck
+                        , transformers
+                        , filepath
+            default-extensions: NoImplicitPrelude

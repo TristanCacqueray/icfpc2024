@@ -80,3 +80,6 @@ booleanComp = \case
   '|' -> Just (||)
   '&' -> Just (&&)
   _ -> Nothing
+
+emptyEnvironment :: Env
+emptyEnvironment = Map.empty
