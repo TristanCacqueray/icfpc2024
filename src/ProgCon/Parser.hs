@@ -63,7 +63,7 @@ asciiP :: P.Parser Text
 asciiP = P.takeWhile (\c -> c >= '!' && c <= '~')
 
 stringP :: P.Parser Text
-stringP = asciiP
+stringP = fmap decodeString asciiP
 
 decodeString :: Text -> Text
 decodeString = T.map convertChars
@@ -74,7 +74,7 @@ charOrder :: String
 charOrder = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!\"#$%&'()*+,-./:;<=>?@[\\]^_`|~ \n"
 
 encodeString :: Text -> Text
-encodeString message = T.cons 'S' $ T.map convertChars message
+encodeString message = T.map convertChars message
  where
   convertChars c = toEnum $ 33 + fromMaybe 0 (elemIndex c charOrder)
 
