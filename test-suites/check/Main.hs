@@ -29,7 +29,7 @@ main = writerMain do
         parseExpr "B$ B$ L\" B$ L# B$ v\" B$ v# v# L# B$ v\" B$ v# v# L\" L# ? B= v# I! I\" B$ L$ B+ B$ v\" v$ B$ v\" v$ B- v# I\" I%"
           === Right (EBinary '$' (EBinary '$' (ELam 1 (EBinary '$' (ELam 2 (EBinary '$' (EVar 1) (EBinary '$' (EVar 2) (EVar 2)))) (ELam 2 (EBinary '$' (EVar 1) (EBinary '$' (EVar 2) (EVar 2)))))) (ELam 1 (ELam 2 (EIf (EBinary '=' (EVar 2) (EInt 0)) (EInt 1) (EBinary '$' (ELam 3 (EBinary '+' (EBinary '$' (EVar 1) (EVar 3)) (EBinary '$' (EVar 1) (EVar 3)))) (EBinary '-' (EVar 2) (EInt 1))))))) (EInt 4))
       writeProperty "decodeString ∘ encodeString = id" \(AppropriateText text) -> (decodeString . encodeString) text === text
-      writeProperty "encodeString ∘ decodeString = id" \(AppropriateText text) -> (encodeString . decodeString) text === text
+      writeProperty "encodeString ∘ decodeString = id" \(AppropriateEncodedText text) -> (encodeString . decodeString) text === text
     testWriter "evaluator" do
       writeProperty "hello" do
         evalExpr
@@ -41,7 +41,14 @@ newtype AppropriateText = AppropriateText Text deriving newtype (Show, Eq, Ord)
 instance Arbitrary AppropriateText where
   arbitrary = do
     text <- arbitrary
-    pure do AppropriateText (Text.filter (\character -> 33 <= ord character && ord character <= 126) text)
+    pure do AppropriateText (Text.filter (`elem` charOrder) text)
+  shrink = coerce (shrink :: Text -> [Text])
+
+newtype AppropriateEncodedText = AppropriateEncodedText Text deriving newtype (Show, Eq, Ord)
+instance Arbitrary AppropriateEncodedText where
+  arbitrary = do
+    text <- arbitrary
+    pure do AppropriateEncodedText (Text.filter (\character -> 33 <= ord character && ord character <= 126) text)
   shrink = coerce (shrink :: Text -> [Text])
 
 checkCommunicationBytes :: TestName -> TestTree
