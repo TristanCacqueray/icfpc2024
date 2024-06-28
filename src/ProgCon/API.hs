@@ -16,6 +16,7 @@ import System.Environment
 import System.IO.Error
 import System.IO.Temp
 
+import ProgCon.Eval
 import ProgCon.Parser
 import ProgCon.Printer qualified as Printer
 
@@ -66,8 +67,20 @@ communicate message = do
   response <- (postBytes . Lazy.fromStrict . encodeUtf8) message
   (pure . decodeUtf8 . toStrict) response
 
-data ApiException = ParseError String deriving (Show)
+data ApiException
+  = ParseError String
+  | ServerReturnedExpressionThatDoesNotEvaluateToString Expr
+  | CannotEvaluateServerResponse Expr
+  deriving (Show)
 instance Exception ApiException
 
 query :: Expr -> IO Expr
 query = (=<<) (either (throwIO . ParseError) pure) . fmap parseExpr . communicate . Printer.print
+
+queryString :: Text -> IO Text
+queryString input = do
+  responseExpression <- query (EStr input)
+  case evalExpr emptyEnvironment responseExpression of
+    Right (EStr output) -> pure output
+    Right _ -> throwIO do ServerReturnedExpressionThatDoesNotEvaluateToString responseExpression
+    Left _ -> throwIO do CannotEvaluateServerResponse responseExpression
