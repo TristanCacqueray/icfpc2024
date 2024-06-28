@@ -80,6 +80,7 @@ library
                      , pretty-simple
                      , time
                      , temporary
+                     , geomancy
 
   exposed-modules:     ProgCon
                      , ProgCon.API

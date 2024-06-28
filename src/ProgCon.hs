@@ -44,8 +44,7 @@ solveSpaceship :: Int -> IO ()
 solveSpaceship nr = do
   let fp = "courses/spaceship/" <> show nr <> ".txt"
   courseInput <- T.readFile fp
-  print courseInput
-  mapM_ print $ Spaceship.parseInput courseInput
+  putStrLn $ Spaceship.solve $ Spaceship.parseInput courseInput
 
 mainCommunicate :: Text -> IO ()
 mainCommunicate message = do
