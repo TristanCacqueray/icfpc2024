@@ -16,6 +16,9 @@ import System.Environment
 import System.IO.Error
 import System.IO.Temp
 
+import ProgCon.Parser
+import ProgCon.Printer qualified as Printer
+
 apiServer :: String
 apiServer = "https://boundvariable.space/communicate"
 
@@ -62,3 +65,9 @@ communicate :: Text -> IO Text
 communicate message = do
   response <- (postBytes . Lazy.fromStrict . encodeUtf8) message
   (pure . decodeUtf8 . toStrict) response
+
+data ApiException = ParseError String deriving (Show)
+instance Exception ApiException
+
+query :: Expr -> IO Expr
+query = (=<<) (either (throwIO . ParseError) pure) . fmap parseExpr . communicate . Printer.print

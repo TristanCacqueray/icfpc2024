@@ -6,11 +6,11 @@ import RIO
 import SimpleCmdArgs
 import Text.Pretty.Simple qualified as Pretty
 
+import ProgCon.API
 import ProgCon.API qualified as API
 import ProgCon.Eval qualified as Eval
 import ProgCon.Parser
 import ProgCon.Parser qualified as Parser
-import ProgCon.Printer qualified as Printer
 import Spaceship qualified
 
 main :: IO ()
@@ -65,9 +65,13 @@ mainEncode message = T.putStrLn (Parser.encodeString message)
 
 mainQuery :: Text -> IO ()
 mainQuery message = do
-  let encodedMessage = Printer.print (EStr message)
-  response <- API.communicate encodedMessage
-  mainParse response
+  let expression = case (readMaybe @Expr . T.unpack) message of
+        Nothing -> EStr message
+        Just expression' -> expression'
+  responseExpression <- query expression
+  case responseExpression of
+    EStr text → T.putStrLn text
+    otherResponseExpression → Pretty.pPrint otherResponseExpression
 
 mainEval :: Text -> IO ()
 mainEval message = case Parser.parseExpr message of

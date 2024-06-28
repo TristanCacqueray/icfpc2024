@@ -18,10 +18,10 @@ data Expr
   | EIf Expr Expr Expr
   | ELam Natural Expr
   | EVar Natural
-  deriving (Show, Eq, Ord)
+  deriving (Show, Read, Eq, Ord)
 
 data UnaryOp = UNeg | UNot | Ustr2int | Uint2str
-  deriving (Show, Eq, Ord)
+  deriving (Show, Read, Eq, Ord)
 
 parseExpr :: Text -> Either String Expr
 parseExpr = P.parseOnly (exprP <* P.endOfInput)
