@@ -9,6 +9,7 @@ import Text.Pretty.Simple qualified as Pretty
 import ProgCon.API qualified as API
 import ProgCon.Eval qualified as Eval
 import ProgCon.Parser qualified as Parser
+import Spaceship qualified
 
 main :: IO ()
 main = do
@@ -33,7 +34,16 @@ mainMain =
             <$> (T.pack <$> strArg "MESSAGE")
       , Subcommand "eval" "eval a message" $
           mainEval <$> (T.pack <$> strArg "MESSAGE")
+      , Subcommand "solve-spaceship" "solve a spaceship puzzle" $
+          solveSpaceship <$> argumentWith auto "NUM"
       ]
+
+solveSpaceship :: Int -> IO ()
+solveSpaceship nr = do
+  let fp = "courses/spaceship/" <> show nr <> ".txt"
+  courseInput <- T.readFile fp
+  print courseInput
+  mapM_ print $ Spaceship.parseInput courseInput
 
 mainCommunicate :: Text -> IO ()
 mainCommunicate message = do
