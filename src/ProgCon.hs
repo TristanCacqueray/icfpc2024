@@ -4,7 +4,6 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import RIO
 import SimpleCmdArgs
-import System.Environment
 import Text.Pretty.Simple qualified as Pretty
 
 import ProgCon.API qualified as API
