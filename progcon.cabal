@@ -78,6 +78,8 @@ library
                      , time
                      , vector < 3
                      , pretty-simple
+                     , time
+                     , temporary
 
   exposed-modules:     ProgCon
                      , ProgCon.API
