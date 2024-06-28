@@ -2,7 +2,7 @@ module ProgCon.API where
 
 import RIO
 import RIO.ByteString (toStrict)
-import qualified RIO.ByteString.Lazy as Lazy
+import RIO.ByteString.Lazy qualified as Lazy
 import RIO.Text qualified as Text
 
 import Data.Text.Encoding (decodeUtf8)
@@ -15,11 +15,11 @@ import Network.HTTP.Types (Status (..))
 apiServer :: String
 apiServer = "https://boundvariable.space/communicate"
 
-postBytes ∷ Lazy.ByteString → IO Lazy.ByteString
+postBytes :: Lazy.ByteString -> IO Lazy.ByteString
 postBytes body = do
   manager <- newTlsManager
   token <- getEnv "ICFP_TOKEN"
-  debug ← lookupEnv "ICFP_DEBUG"
+  debug <- lookupEnv "ICFP_DEBUG"
   initialRequest <- parseRequest apiServer
   let request =
         initialRequest
@@ -36,5 +36,5 @@ postBytes body = do
 
 communicate :: Text -> IO Text
 communicate message = do
-  response ← (postBytes . Lazy.fromStrict . encodeUtf8) message
+  response <- (postBytes . Lazy.fromStrict . encodeUtf8) message
   (pure . decodeUtf8 . toStrict) response
