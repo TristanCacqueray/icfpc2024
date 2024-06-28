@@ -4,11 +4,14 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import RIO
 import SimpleCmdArgs
+import System.Environment
 import Text.Pretty.Simple qualified as Pretty
 
 import ProgCon.API qualified as API
 import ProgCon.Eval qualified as Eval
+import ProgCon.Parser
 import ProgCon.Parser qualified as Parser
+import ProgCon.Printer qualified as Printer
 import Spaceship qualified
 
 main :: IO ()
@@ -55,7 +58,7 @@ mainParse message = case Parser.parseExpr message of
     T.putStrLn message
     error err
   Right expr -> case expr of
-    Parser.EStr txt -> T.putStrLn (Parser.decodeString txt)
+    Parser.EStr txt -> T.putStrLn txt
     _ -> Pretty.pPrint expr
 
 mainEncode :: Text -> IO ()
@@ -63,7 +66,9 @@ mainEncode message = T.putStrLn (Parser.encodeString message)
 
 mainQuery :: Text -> IO ()
 mainQuery message = do
-  mainParse =<< API.communicate (Parser.encodeString message)
+  let encodedMessage = Printer.print (EStr message)
+  response <- API.communicate encodedMessage
+  mainParse response
 
 mainEval :: Text -> IO ()
 mainEval message = case Parser.parseExpr message of

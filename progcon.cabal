@@ -86,6 +86,7 @@ library
                      , ProgCon.Eval
                      , ProgCon.GUI
                      , ProgCon.Parser
+                     , ProgCon.Printer
                      , ProgCon.Solve
                      , ProgCon.Submit
                      , ProgCon.Syntax
