@@ -70,8 +70,8 @@ mainQuery message = do
         Just expression' -> expression'
   responseExpression <- query expression
   case responseExpression of
-    EStr text → T.putStrLn text
-    otherResponseExpression → Pretty.pPrint otherResponseExpression
+    EStr text -> T.putStrLn text
+    otherResponseExpression -> Pretty.pPrint otherResponseExpression
 
 mainEval :: Text -> IO ()
 mainEval message = case Parser.parseExpr message of
