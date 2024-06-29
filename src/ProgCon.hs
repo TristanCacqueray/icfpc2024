@@ -1,6 +1,7 @@
 module ProgCon (main) where
 
 import Data.Text qualified as T
+import Data.Text.Lazy as T (toStrict)
 import Data.Text.IO qualified as T
 import RIO
 import SimpleCmdArgs
@@ -76,10 +77,10 @@ mainPush =
     pure ()
 
 mainPull :: IO ()
-mainPull =
+mainPull = do
   traverse_
     syncCourse
-    [ -- ("lambdaman", 21),
+    [ ("lambdaman", 21),
       ("spaceship", 25)
     ]
  where
@@ -93,11 +94,13 @@ mainPull =
       doesFileExist fp >>= \case
         True -> pure ()
         False -> do
-          putStrLn $ "Syncing " <> fp
+          putStrLn $ "Syncing " <> fp <> ", query \"get " <> name <> show nr <> "\""
           handleQuery (T.pack $ "get " <> name <> show nr) >>= \case
-            Left expr -> case Eval.evalExpr mempty expr of
-              Right (Parser.EStr txt) -> T.writeFile fp txt
-              res -> T.putStrLn "Not string:" >> Pretty.pPrint res
+            Left expr -> T.putStrLn $ "Not string:" <> T.take 128 (T.toStrict $ Pretty.pShow expr)
+              -- eval response
+              -- case Eval.evalExpr mempty expr of
+              -- Right (Parser.EStr txt) -> T.writeFile fp txt
+              -- res -> T.putStrLn "Not string:" >> Pretty.pPrint res
             Right txt -> T.writeFile fp txt
 
 solveSpaceship :: Int -> IO ()
