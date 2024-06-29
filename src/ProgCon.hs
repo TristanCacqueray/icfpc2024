@@ -11,7 +11,9 @@ import ProgCon.API qualified as API
 import ProgCon.Eval qualified as Eval
 import ProgCon.Parser
 import ProgCon.Parser qualified as Parser
+import ProgCon.Printer qualified as Printer
 import RIO.Directory (createDirectoryIfMissing, doesFileExist)
+import SimpleCmd.Git qualified
 import Spaceship qualified
 
 main :: IO ()
@@ -43,7 +45,34 @@ mainMain =
           solveSpaceship <$> argumentWith auto "NUM"
       , Subcommand "sync-puzzles" "fetch all the puzzles" $
           pure mainSync
+      , Subcommand "push-solutions" "submit all new solutions" $ pure mainPush
       ]
+
+-- | Submit any modified files in `courses/%s/%d.bytes` and stage them with `git add`.
+-- Run this command after creating new solutions.
+mainPush :: IO ()
+mainPush =
+  SimpleCmd.Git.git "status" ["--porcelain"] >>= \(lines -> xs) -> do
+    traverse_ pushSolution xs
+ where
+  pushSolution (words -> [status, T.pack -> path])
+    | "courses/" `T.isPrefixOf` path && ".bytes" `T.isSuffixOf` path = case status of
+        "??" -> doPush path
+        "AM" -> doPush path
+        "A" -> pure ()
+        _ -> putStrLn $ "Ignoring path: " <> status <> " " <> show path
+  pushSolution _ = pure ()
+  doPush (T.unpack -> fp) = do
+    putStrLn $ "[+] Submiting " <> fp
+    bytes <- T.strip <$> T.readFile fp
+    resp <- API.communicate bytes
+    case parseExpr resp of
+      Right (Parser.EStr txt) -> do
+        T.putStrLn $ "OK: " <> txt
+        SimpleCmd.Git.git_ "add" [fp]
+      expr -> Pretty.pPrint expr
+    -- exitSuccess
+    pure ()
 
 mainSync :: IO ()
 mainSync =
@@ -70,16 +99,24 @@ mainSync =
 
 solveSpaceship :: Int -> IO ()
 solveSpaceship nr = do
-  let fp = "courses/spaceship/" <> show nr <> ".txt"
-  courseInput <- T.readFile fp
-  putStrLn $ Spaceship.solve $ Spaceship.parseInput courseInput
+  let ifp = "courses/spaceship/" <> show nr <> ".txt"
+  courseInput <- T.readFile ifp
+  let targets = Spaceship.parseInput courseInput
+  putStrLn $ "Solving " <> ifp <> ": " <> show (length targets)
+  let thrusts = Spaceship.solve targets
+  let ofp = "courses/spaceship/" <> show nr <> ".bytes"
+  putStrLn $ "Done: " <> show (length thrusts)
+  T.writeFile ofp $ Printer.print $ EStr $ "solve spaceship" <> T.pack (show nr <> " " <> thrusts)
 
 mainCommunicate :: Text -> IO ()
 mainCommunicate message = do
   T.putStrLn =<< API.communicate message
 
 mainParseFile :: FilePath -> IO ()
-mainParseFile fp = mainParse . T.strip =<< T.readFile fp
+mainParseFile fp = do
+  txt <- T.strip <$> T.readFile fp
+  print txt
+  mainParse txt
 
 mainParse :: Text -> IO ()
 mainParse message = case Parser.parseExpr message of
@@ -87,7 +124,7 @@ mainParse message = case Parser.parseExpr message of
     T.putStrLn message
     error err
   Right expr -> case expr of
-    Parser.EStr txt -> T.putStrLn txt
+    Parser.EStr txt -> T.putStrLn $ "OK: " <> txt
     _ -> Pretty.pPrint expr
 
 mainEncode :: Text -> IO ()
