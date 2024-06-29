@@ -16,6 +16,7 @@ import ProgCon.Printer qualified as Printer
 import RIO.Directory (createDirectoryIfMissing, doesFileExist)
 import SimpleCmd.Git qualified
 import Spaceship qualified
+import Codegen qualified
 
 main :: IO ()
 main = do
@@ -114,7 +115,7 @@ solveSpaceship nr = do
   let thrusts = Spaceship.solve ordered
   let ofp = "courses/spaceship/" <> show nr <> ".bytes"
   putStrLn $ "Done: " <> show (length thrusts)
-  T.writeFile ofp $ Printer.print $ EStr $ "solve spaceship" <> T.pack (show nr <> " " <> thrusts)
+  T.writeFile ofp $ Printer.print $ Codegen.pack $ "solve spaceship" <> T.pack (show nr <> " " <> thrusts)
 
 mainCommunicate :: Text -> IO ()
 mainCommunicate message = do

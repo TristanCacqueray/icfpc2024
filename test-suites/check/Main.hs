@@ -24,6 +24,7 @@ import ProgCon.Parser
 import ProgCon.Printer qualified as Printer
 import Spaceship qualified
 import qualified LambdaMan
+import qualified Codegen
 
 main :: IO ()
 main = writerMain do
@@ -150,7 +151,7 @@ communicateSolution name number =
         fmap
         do getExpressionFromFile ("examples" </> problem </> "solution.expression")
         \case
-          EStr text -> EStr (Text.unwords ["solve", Text.pack name <> (Text.pack . show) number, text])
+          EStr text -> Codegen.pack (Text.unwords ["solve", Text.pack name <> (Text.pack . show) number, text])
           _ -> error "Not implemented."
  where
   problem = problemPath name number

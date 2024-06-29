@@ -82,6 +82,7 @@ library
                      , time
                      , temporary
                      , geomancy
+                     , string-similarity
 
   exposed-modules:     ProgCon
                      , ProgCon.API
@@ -95,6 +96,7 @@ library
                      , ProgCon.Utils
                      , Spaceship
                      , LambdaMan
+                     , Codegen
   hs-source-dirs:      src
 
 test-suite  checks
