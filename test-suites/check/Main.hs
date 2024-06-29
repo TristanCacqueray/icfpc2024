@@ -129,10 +129,9 @@ communicateSolution name number =
       flip
         fmap
         do getExpressionFromFile ("examples" </> problem </> "solution.expression")
-        \solutionExpression ->
-          case solutionExpression of
-            EStr text -> EStr (Text.unwords ["solve", "spaceship" <> (Text.pack . show) number, text])
-            _ -> error "Not implemented."
+        \case
+          EStr text -> EStr (Text.unwords ["solve", "spaceship" <> (Text.pack . show) number, text])
+          _ -> error "Not implemented."
  where
   problem = problemPath name number
 
