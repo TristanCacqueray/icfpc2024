@@ -62,7 +62,7 @@ genCruise iship target = go "" iship (fdist iship.pos target)
   go :: String -> Ship -> Float -> (String, Ship)
   go acc ship prevDist
     | ship.pos == target = (reverse newAcc, newShip)
-    | newDist > prevDist = error $ "Not getting closer " <> show ship <> " + " <> show thrust <> " for " <> show target
+    | newDist > prevDist = error $ "Not getting closer from " <> show ship <> " to " <> show thrust <> " prevDist " <> show prevDist <> " newDist " <> show newDist
     | otherwise = go newAcc newShip newDist
    where
     thrust = genShipThrust ship target
@@ -73,15 +73,33 @@ genCruise iship target = go "" iship (fdist iship.pos target)
 -- | Compute the thrust to apply for reaching the target.
 genShipThrust :: Ship -> Target -> IVec2
 genShipThrust ship target =
+  -- traceShow ("genShipThrust" :: String, ship, target) $
   withIVec2 ship.vel \vx vy -> withIVec2 ship.pos \x y -> withIVec2 target \tx ty ->
-    ivec2 (genThrust vx x tx) (genThrust vy y ty)
+    ivec2 (dbgVal "tx" $ genThrust vx x tx) (dbgVal "ty" $ genThrust vy y ty)
 
 -- | A basic one thrust implementation
 genThrust :: Int32 -> Int32 -> Int32 -> Int32
 genThrust velocity start end
-  | velocity == 0 = signum (end - start)
-  | start == end = negate velocity
-  | otherwise = 0
+  | start == end =
+      if abs velocity > 1 then error "Going too fast!" else negate velocity
+  -- \| abs velocity > 0 && start + accelThrust == end = dbgVal "lastCruise!" 0
+  | distance < brakingDistance = dbgVal "decel!" $ negate accelThrust
+  | distance >= nextBrakingDistance = dbgVal "accel!" $ accelThrust
+  | otherwise = dbgVal "cruising!" 0
+ where
+  distance = dbgVal "dist" $ abs (start - end)
+  accelThrust = dbgVal "accelThrust" $ signum (end - start)
+  brakingDistance = dbgVal "brakingDistance" $ calcBrakingDistance (abs velocity)
+  nextBrakingDistance = dbgVal "nextBrake" $ calcBrakingDistance (abs velocity + 1)
+
+dbgVal -- (Show a) =>
+  :: String -> a -> a
+dbgVal _name v =
+  -- traceShow (_name <> ":" <> show v)
+  v
+
+calcBrakingDistance :: Int32 -> Int32
+calcBrakingDistance x = x * (x + 1) `div` 2
 
 -- | Update the ship based on a new thrust
 applyThrust :: IVec2 -> Ship -> Ship
@@ -167,6 +185,10 @@ spec = do
   cruises =
     [ (testCruise 1 1, "91")
     , (testCruise 0 0, "5")
+    , (testCruise 5 0, "66454")
+    , (testCruise 6 0, "66544")
+    , (testCruise 7 0, "665454")
+    , (testCruise 5 3, "96424")
     , (testCruise 2 2, "951")
     , (testCruise (-2) (-2), "159")
     ]
