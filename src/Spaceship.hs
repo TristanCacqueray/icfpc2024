@@ -4,6 +4,32 @@ import Data.Attoparsec.Text qualified as P
 import Geomancy.IVec2
 import RIO
 
+optimizeOrder :: [IVec2] -> [IVec2]
+optimizeOrder = go [] (ivec2 0 0)
+ where
+  -- Order by repeatedly finding the closes target from the previous location 'pos'
+  go :: [IVec2] -> IVec2 -> [IVec2] -> [IVec2]
+  go acc _pos [] = reverse acc
+  go acc pos (x : xs) =
+    let
+      -- Get the new closest post and the list of remaining targets
+      ((_, closestPos), others) = foldl' (go' pos) ((idist pos x, x), []) xs
+    in  go (closestPos : acc) closestPos others
+
+  -- Separate the closest position from the rest
+  go' :: IVec2 -> ((Int32, IVec2), [IVec2]) -> IVec2 -> ((Int32, IVec2), [IVec2])
+  go' pos (prev@(prevClosestDistance, prevClosestPos), others) target
+    | -- The current target is the new closest, move the previous closest to the others list
+      targetDist < prevClosestDistance = ((targetDist, target), prevClosestPos : others)
+    | -- otherwise keep the previous closest
+      otherwise = (prev, target : others)
+   where
+    targetDist = idist pos target
+
+idist :: IVec2 -> IVec2 -> Int32
+idist p t = withIVec2 (abs (p - t)) \x y -> do
+  x + y
+
 solve :: [IVec2] -> String
 solve = go [] initialShip
  where

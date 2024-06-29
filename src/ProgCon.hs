@@ -105,7 +105,9 @@ solveSpaceship nr = do
   courseInput <- T.readFile ifp
   let targets = Spaceship.parseInput courseInput
   putStrLn $ "Solving " <> ifp <> ": " <> show (length targets)
-  let thrusts = Spaceship.solve targets
+  let ordered = Spaceship.optimizeOrder targets
+  -- putStrLn $ "Optimized " <> ifp <> ": " <> show (take 10 targets)
+  let thrusts = Spaceship.solve ordered
   let ofp = "courses/spaceship/" <> show nr <> ".bytes"
   putStrLn $ "Done: " <> show (length thrusts)
   T.writeFile ofp $ Printer.print $ EStr $ "solve spaceship" <> T.pack (show nr <> " " <> thrusts)
