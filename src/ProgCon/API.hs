@@ -80,7 +80,7 @@ query = (=<<) (either (throwIO . ParseError) pure) . fmap parseExpr . communicat
 queryString :: Text -> IO Text
 queryString input = do
   responseExpression <- query (EStr input)
-  case evalExpr emptyEnvironment responseExpression of
+  case evalExpr responseExpression of
     Right (EStr output) -> pure output
     Right _ -> throwIO do ServerReturnedExpressionThatDoesNotEvaluateToString responseExpression
     Left _ -> throwIO do CannotEvaluateServerResponse responseExpression

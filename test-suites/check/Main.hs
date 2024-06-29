@@ -58,7 +58,6 @@ fastChecks = do
   testWriter "evaluator" do
     writeProperty "hello" do
       evalExpr
-        emptyEnvironment
         (EBinary '$' (EBinary '$' (ELam 2 (ELam 3 (EVar 2))) (EBinary '.' (EStr "Hello") (EStr " World!"))) (EInt 42))
         === Right (EStr "Hello World!")
   testWriter "solutions" do
@@ -117,7 +116,7 @@ getMap number = write do
   let target = "examples" </> "lambdaman" </> show number </> "problem.string"
   goldenVsString "get map" target do
     expression <- getExpressionFromFile source
-    case evalExpr emptyEnvironment expression of
+    case evalExpr expression of
       Left errorMessage -> throwIO do CannotEvaluate expression errorMessage
       Right (EStr text) -> (pure . Bytes.fromStrict . Text.encodeUtf8) text
       Right otherExpression -> throwIO do ExpectedString otherExpression
@@ -157,7 +156,7 @@ communicateSolution name number =
 checkCorrectness :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
 checkCorrectness name number = (writeProperty "check correctness" . ioProperty) do
   response <- getExpressionFromFile ("examples" </> problem </> "communicate solution" </> "response.expression")
-  wordsOfResponse <- case evalExpr emptyEnvironment response of
+  wordsOfResponse <- case evalExpr response of
     Right (EStr text) -> pure do Text.words text
     _ -> throwIO do ResponseIsNotString response
   pure do wordsOfResponse Partial.!! 0 === "Correct,"
@@ -167,7 +166,7 @@ checkCorrectness name number = (writeProperty "check correctness" . ioProperty) 
 checkCost :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
 checkCost name number = (writeProperty "check cost" . ioProperty) do
   response <- getExpressionFromFile ("examples" </> problem </> "communicate solution" </> "response.expression")
-  wordsOfResponse <- case evalExpr emptyEnvironment response of
+  wordsOfResponse <- case evalExpr response of
     Right (EStr text) -> pure do Text.words text
     _ -> throwIO do ResponseIsNotString response
   currentCost <- readIO @Natural (PartialText.init (wordsOfResponse Partial.!! 8))

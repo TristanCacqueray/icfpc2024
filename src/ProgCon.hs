@@ -162,6 +162,6 @@ mainEvalFile fp = mainEval =<< fmap T.strip (T.readFile fp)
 mainEval :: Text -> IO ()
 mainEval message = case Parser.parseExpr message of
   Left err -> error err
-  Right expr -> case Eval.evalExpr mempty expr of
+  Right expr -> case Eval.evalExpr expr of
     Right (Parser.EStr txt) -> T.putStrLn txt
     res -> Pretty.pPrint res

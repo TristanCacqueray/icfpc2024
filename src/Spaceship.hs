@@ -172,7 +172,7 @@ coordP = do
 
 solveExpression :: Expr -> Either String Expr
 solveExpression inputExpression = do
-  evaluatedInputExpression <- evalExpr emptyEnvironment inputExpression
+  evaluatedInputExpression <- evalExpr inputExpression
   inputText <- case evaluatedInputExpression of
     EStr text -> Right text
     somethingElse -> Left (show somethingElse)
@@ -183,7 +183,7 @@ solveExpression inputExpression = do
 
 validateExpression :: Expr -> Either String Float
 validateExpression inputExpression = do
-  evaluatedInputExpression <- evalExpr emptyEnvironment inputExpression
+  evaluatedInputExpression <- evalExpr inputExpression
   inputText <- case evaluatedInputExpression of
     EStr text -> Right text
     somethingElse -> Left (show somethingElse)
