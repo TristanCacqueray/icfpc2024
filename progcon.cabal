@@ -94,6 +94,7 @@ library
                      , ProgCon.Syntax
                      , ProgCon.Utils
                      , Spaceship
+                     , LambdaMan
   hs-source-dirs:      src
 
 test-suite  checks

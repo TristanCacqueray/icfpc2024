@@ -40,6 +40,7 @@ data ProblemDefinition = ProblemDefinition
 problems :: [ProblemDefinition]
 problems =
   [ ProblemDefinition {name = "spaceship", size = 25, solve = Spaceship.solveExpression, validate = Spaceship.validateExpression}
+  , ProblemDefinition {name = "lambdaman", size = 21, solve = LambdaMan.solveExpression, validate = LambdaMan.validateExpression}
   ]
 
 fastChecks :: Writer ([TestTree] -> [TestTree]) ()
@@ -83,10 +84,76 @@ checkProblem ProblemDefinition {..} = testWriter name do
     sequentialTestWriter (unwords ["problem", show number]) do
       communicateProblem name number
       getProblemExpression name number
+      when (name == "lambdaman") do getMap number
       getSolutionExpression name number solve
       communicateSolution name number
       checkCorrectness name number
       checkCost name number
+
+problemPath :: FilePath -> Natural -> FilePath
+problemPath name number = name </> show number
+
+communicateProblem :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
+communicateProblem name number =
+  checkCommunication
+    problem
+    "communicate problem"
+    do pure do EStr (Text.unwords ["get", Text.pack name <> (Text.pack . show) number])
+ where
+  problem = problemPath name number
+
+getProblemExpression :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
+getProblemExpression name number =
+  write do
+    let source = "examples" </> problem </> "communicate problem" </> "response.expression.new"
+    let target = "examples" </> problem </> "problem.expression"
+    goldenVsFile "get problem expression" target source (pure ())
+ where
+  problem = problemPath name number
+
+getMap :: Natural -> Writer ([TestTree] -> [TestTree]) ()
+getMap number = write do
+  let source = "examples" </> "lambdaman" </> show number </> "problem.expression"
+  let target = "examples" </> "lambdaman" </> show number </> "problem.string"
+  goldenVsString "get map" target do
+    expression ← getExpressionFromFile source
+    case evalExpr emptyEnvironment expression of
+      Left errorMessage → throwIO do CannotEvaluate expression errorMessage
+      Right (EStr text) → (pure . Bytes.fromStrict . Text.encodeUtf8) text
+      Right otherExpression → throwIO do ExpectedString otherExpression
+
+
+getSolutionExpression :: String -> Natural -> (Expr -> Either String Expr) -> Writer ([TestTree] -> [TestTree]) ()
+getSolutionExpression name number solve =
+  write do
+    let source = "examples" </> problem </> "problem.expression"
+    let target = "examples" </> problem </> "solution.expression"
+    goldenVsString
+      "get solution expression"
+      target
+      do
+        problemExpression <- getExpressionFromFile source
+        solutionExpression <- case solve problemExpression of
+          Left errorMessage -> throwIO do CannotSolveProblem errorMessage
+          Right solution -> pure solution
+        pure do expressionToBytes solutionExpression
+ where
+  problem = problemPath name number
+
+communicateSolution :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
+communicateSolution name number =
+  checkCommunication
+    problem
+    "communicate solution"
+    do
+      flip
+        fmap
+        do getExpressionFromFile ("examples" </> problem </> "solution.expression")
+        \case
+          EStr text -> EStr (Text.unwords ["solve", Text.pack name <> (Text.pack . show) number, text])
+          _ -> error "Not implemented."
+ where
+  problem = problemPath name number
 
 checkCorrectness :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
 checkCorrectness name number = (writeProperty "check correctness" . ioProperty) do
@@ -124,59 +191,6 @@ checkCost name number = (writeProperty "check cost" . ioProperty) do
  where
   problem = problemPath name number
 
-problemPath :: FilePath -> Natural -> FilePath
-problemPath name number = name </> show number
-
-communicateProblem :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
-communicateProblem name number =
-  checkCommunication
-    problem
-    "communicate problem"
-    do pure do EStr (Text.unwords ["get", Text.pack name <> (Text.pack . show) number])
- where
-  problem = problemPath name number
-
-getProblemExpression :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
-getProblemExpression name number =
-  write do
-    let source = "examples" </> problem </> "communicate problem" </> "response.expression.new"
-    let target = "examples" </> problem </> "problem.expression"
-    goldenVsFile "get problem expression" target source (pure ())
- where
-  problem = problemPath name number
-
-getSolutionExpression :: String -> Natural -> (Expr -> Either String Expr) -> Writer ([TestTree] -> [TestTree]) ()
-getSolutionExpression name number solve =
-  write do
-    let source = "examples" </> problem </> "problem.expression"
-    let target = "examples" </> problem </> "solution.expression"
-    goldenVsString
-      "get solution expression"
-      target
-      do
-        problemExpression <- getExpressionFromFile source
-        solutionExpression <- case solve problemExpression of
-          Left errorMessage -> throwIO do CannotSolveProblem errorMessage
-          Right solution -> pure solution
-        pure do expressionToBytes solutionExpression
- where
-  problem = problemPath name number
-
-communicateSolution :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
-communicateSolution name number =
-  checkCommunication
-    problem
-    "communicate solution"
-    do
-      flip
-        fmap
-        do getExpressionFromFile ("examples" </> problem </> "solution.expression")
-        \case
-          EStr text -> EStr (Text.unwords ["solve", Text.pack name <> (Text.pack . show) number, text])
-          _ -> error "Not implemented."
- where
-  problem = problemPath name number
-
 readIO :: (Read read) => Text -> IO read
 readIO text = case (readMaybe . Text.unpack) text of
   Nothing -> throwIO do CannotRead text
@@ -205,6 +219,8 @@ data CheckingException
   | ResponseIsNotString Expr
   | CannotRead Text
   | CostIncreased Natural Natural
+  | CannotEvaluate Expr String
+  | ExpectedString Expr
   deriving (Show)
 instance Exception CheckingException
 
