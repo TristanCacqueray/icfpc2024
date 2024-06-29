@@ -19,7 +19,10 @@ import ProgCon.API
 import ProgCon.Eval
 import ProgCon.Parser
 import ProgCon.Printer qualified as Printer
+import RIO.List.Partial qualified as Partial
+import RIO.Text.Partial qualified as PartialText
 import Spaceship qualified
+import System.IO.Error
 
 main :: IO ()
 main = writerMain do
@@ -81,6 +84,44 @@ checkProblem ProblemDefinition {..} = testWriter name do
       getProblemExpression name number
       getSolutionExpression name number solve
       communicateSolution name number
+      checkCorrectness name number
+      checkCost name number
+
+checkCorrectness :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
+checkCorrectness name number = (writeProperty "check correctness" . ioProperty) do
+  response <- getExpressionFromFile ("examples" </> problem </> "communicate solution" </> "response.expression")
+  wordsOfResponse <- case evalExpr emptyEnvironment response of
+    Right (EStr text) -> pure do Text.words text
+    _ -> throwIO do ResponseIsNotString response
+  pure do wordsOfResponse Partial.!! 0 === "Correct,"
+ where
+  problem = problemPath name number
+
+checkCost :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
+checkCost name number = (writeProperty "check correctness" . ioProperty) do
+  response <- getExpressionFromFile ("examples" </> problem </> "communicate solution" </> "response.expression")
+  wordsOfResponse <- case evalExpr emptyEnvironment response of
+    Right (EStr text) -> pure do Text.words text
+    _ -> throwIO do ResponseIsNotString response
+  currentCost <- readIO @Natural (PartialText.init (wordsOfResponse Partial.!! 8))
+  lastCostText <-
+    Text.readFile ("examples" </> problem </> "cost.number")
+      `catch` \exception ->
+        if doesNotExistErrorType == ioeGetErrorType exception
+          then do
+            let newText = (Text.pack . show) currentCost
+            Text.writeFile ("examples" </> problem </> "cost.number") newText
+            pure newText
+          else throwIO exception
+  lastCost <- readIO @Natural lastCostText
+  if currentCost > lastCost
+    then throwIO do CostIncreased currentCost lastCost
+    else do
+      let newText = (Text.pack . show) currentCost
+      Text.writeFile ("examples" </> problem </> "cost.number") newText
+      pure True
+ where
+  problem = problemPath name number
 
 problemPath :: FilePath -> Natural -> FilePath
 problemPath name number = name </> show number
@@ -135,12 +176,13 @@ communicateSolution name number =
  where
   problem = problemPath name number
 
+readIO :: (Read read) => Text -> IO read
+readIO text = case (readMaybe . Text.unpack) text of
+  Nothing -> throwIO do CannotRead text
+  Just result -> pure result
+
 getExpressionFromFile :: FilePath -> IO Expr
-getExpressionFromFile filePath = do
-  expressionText <- Text.readFile filePath
-  case (readMaybe @Expr . Text.unpack) expressionText of
-    Nothing -> throwIO do CannotReadExpression expressionText
-    Just expression -> pure expression
+getExpressionFromFile = Text.readFile >=> readIO
 
 expressionToBytes :: Expr -> Bytes.ByteString
 expressionToBytes = Bytes.fromStrict . Text.encodeUtf8 . Text.pack . show
@@ -157,9 +199,11 @@ encodeExpressionToBytes :: Expr -> Bytes.ByteString
 encodeExpressionToBytes = Bytes.fromStrict . Text.encodeUtf8 . Printer.print
 
 data CheckingException
-  = CannotReadExpression Text
-  | CannotDecodeExpression String
+  = CannotDecodeExpression String
   | CannotSolveProblem String
+  | ResponseIsNotString Expr
+  | CannotRead Text
+  | CostIncreased Natural Natural
   deriving (Show)
 instance Exception CheckingException
 
