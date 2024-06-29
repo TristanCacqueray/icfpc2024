@@ -56,6 +56,17 @@ fastChecks = do
         emptyEnvironment
         (EBinary '$' (EBinary '$' (ELam 2 (ELam 3 (EVar 2))) (EBinary '.' (EStr "Hello") (EStr " World!"))) (EInt 42))
         === Right (EStr "Hello World!")
+  testWriter "solutions" do
+    forM_ problems fastCheckProblem
+
+fastCheckProblem :: ProblemDefinition -> Writer ([TestTree] -> [TestTree]) ()
+fastCheckProblem ProblemDefinition {..} =
+  testWriter name do
+    forM_ [1 .. size] \number ->
+      writeProperty (show number) do
+        (within 1_000_000 . ioProperty) do
+          problemExpression <- getExpressionFromFile ("examples" </> "spaceship" </> show number </> "problem.expression")
+          pure do isRight do validate problemExpression
 
 slowChecks :: Writer ([TestTree] -> [TestTree]) ()
 slowChecks = do
