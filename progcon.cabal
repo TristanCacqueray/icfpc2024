@@ -105,7 +105,7 @@ test-suite  checks
                         , base
                         , progcon
                         , rio
-                        , tasty
+                        , tasty >= 1.5
                         , tasty-golden
                         , tasty-quickcheck
                         , transformers
