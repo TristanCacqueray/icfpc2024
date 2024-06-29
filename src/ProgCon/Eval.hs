@@ -35,8 +35,7 @@ evalExpr env expr = case expr of
     | Right (EStr x) <- evalExpr env e1
     , Right (EStr y) <- evalExpr env e2 ->
         pure $ EBool (x == y)
-  EBinary '$' (ELam var body) e2 -> evalExpr (Map.insert var e2 env) body
-  EBinary '$' e1 e2 | Right (ELam var body) <- evalExpr env e1 -> evalExpr (Map.insert var e2 env) body
+  EBinary '$' e1 e2 | Right (ELam var body) <- evalExpr env e1 -> evalExpr env $ substitute var e2 body
   EBinary '.' e1 e2
     | Right (EStr s1) <- evalExpr env e1
     , Right (EStr s2) <- evalExpr env e2 ->
@@ -49,14 +48,24 @@ evalExpr env expr = case expr of
     | Right (EInt i) <- evalExpr env e1
     , Right (EStr s) <- evalExpr env e2 ->
         pure $ EStr (T.drop (fromIntegral i) s)
-  EBinary {} -> Left $ "TODO: " <> show expr
+  EBinary {} -> Left $ "Failed to evaluate: " <> show expr <> ", with env: " <> show env
   EVar v -> case Map.lookup v env of
     Nothing -> Left $ "Unbound var: " <> show v <> ", in " <> show env <> ", for " <> show expr
     Just e -> evalExpr env e
-  ELam v b -> ELam v <$> evalExpr env b
   EIf e1 e2 e3
     | Right (EBool pred') <- evalExpr env e1 -> evalExpr env (if pred' then e2 else e3)
   e -> pure e
+
+substitute :: Natural -> Expr -> Expr -> Expr
+substitute name expr = \case
+  EUnary o e -> EUnary o $ substitute name expr e
+  EBinary o e1 e2 -> EBinary o (substitute name expr e1) (substitute name expr e2)
+  EVar v | v == name -> expr
+         | otherwise -> EVar v
+  EIf e1 e2 e3 -> EIf (substitute name expr e1) (substitute name expr e2) (substitute name expr e3)
+  ELam v b | v == name -> ELam v b
+           | otherwise -> ELam v (substitute name expr b)
+  e -> e
 
 integerOp :: Char -> Maybe (Natural -> Natural -> Expr)
 integerOp = \case
