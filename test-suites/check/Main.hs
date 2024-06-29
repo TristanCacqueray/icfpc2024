@@ -4,6 +4,8 @@ import RIO
 import RIO.ByteString.Lazy qualified as Bytes
 import RIO.Char
 import RIO.Text qualified as Text
+import RIO.List.Partial qualified as Partial
+import RIO.Text.Partial qualified as PartialText
 
 import Control.Monad.Trans.Writer.CPS
 import Data.Coerce
@@ -14,15 +16,14 @@ import Test.QuickCheck.Instances.Text ()
 import Test.Tasty
 import Test.Tasty.Golden
 import Test.Tasty.QuickCheck
+import System.IO.Error
 
 import ProgCon.API
 import ProgCon.Eval
 import ProgCon.Parser
 import ProgCon.Printer qualified as Printer
-import RIO.List.Partial qualified as Partial
-import RIO.Text.Partial qualified as PartialText
 import Spaceship qualified
-import System.IO.Error
+import qualified LambdaMan
 
 main :: IO ()
 main = writerMain do
@@ -68,7 +69,7 @@ fastCheckProblem ProblemDefinition {..} =
     forM_ [1 .. size] \number ->
       writeProperty (show number) do
         (within 1_000_000 . ioProperty) do
-          problemExpression <- getExpressionFromFile ("examples" </> "spaceship" </> show number </> "problem.expression")
+          problemExpression <- getExpressionFromFile ("examples" </> name </> show number </> "problem.expression")
           pure do isRight do validate problemExpression
 
 slowChecks :: Writer ([TestTree] -> [TestTree]) ()
@@ -98,7 +99,7 @@ checkCorrectness name number = (writeProperty "check correctness" . ioProperty) 
   problem = problemPath name number
 
 checkCost :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
-checkCost name number = (writeProperty "check correctness" . ioProperty) do
+checkCost name number = (writeProperty "check cost" . ioProperty) do
   response <- getExpressionFromFile ("examples" </> problem </> "communicate solution" </> "response.expression")
   wordsOfResponse <- case evalExpr emptyEnvironment response of
     Right (EStr text) -> pure do Text.words text
@@ -131,7 +132,7 @@ communicateProblem name number =
   checkCommunication
     problem
     "communicate problem"
-    do pure do EStr (Text.unwords ["get", "spaceship" <> (Text.pack . show) number])
+    do pure do EStr (Text.unwords ["get", Text.pack name <> (Text.pack . show) number])
  where
   problem = problemPath name number
 
@@ -171,7 +172,7 @@ communicateSolution name number =
         fmap
         do getExpressionFromFile ("examples" </> problem </> "solution.expression")
         \case
-          EStr text -> EStr (Text.unwords ["solve", "spaceship" <> (Text.pack . show) number, text])
+          EStr text -> EStr (Text.unwords ["solve", Text.pack name <> (Text.pack . show) number, text])
           _ -> error "Not implemented."
  where
   problem = problemPath name number
