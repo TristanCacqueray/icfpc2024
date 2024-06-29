@@ -37,14 +37,14 @@ mainMain =
       , Subcommand "parse" "parse a message" $
           mainParse
             <$> (T.pack <$> strArg "MESSAGE")
-      , Subcommand "parse-file" "parse a message" $
-          mainParseFile <$> (strArg "FP")
+      , Subcommand "parse-file" "parse a message" $ mainParseFile <$> strArg "FP"
       , Subcommand "eval" "eval a message" $
           mainEval <$> (T.pack <$> strArg "MESSAGE")
+      , Subcommand "eval-file" "eval a message" $ mainEvalFile <$> strArg "FP"
       , Subcommand "solve-spaceship" "solve a spaceship puzzle" $
           solveSpaceship <$> argumentWith auto "NUM"
-      , Subcommand "sync-puzzles" "fetch all the puzzles" $
-          pure mainSync
+      , Subcommand "pull-puzzles" "fetch all the puzzles" $
+          pure mainPull
       , Subcommand "push-solutions" "submit all new solutions" $ pure mainPush
       ]
 
@@ -74,8 +74,8 @@ mainPush =
     -- exitSuccess
     pure ()
 
-mainSync :: IO ()
-mainSync =
+mainPull :: IO ()
+mainPull =
   traverse_
     syncCourse
     [ -- ("lambdaman", 21),
@@ -94,7 +94,9 @@ mainSync =
         False -> do
           putStrLn $ "Syncing " <> fp
           handleQuery (T.pack $ "get " <> name <> show nr) >>= \case
-            Left e -> T.putStrLn "Bad resp:" >> Pretty.pPrint e
+            Left expr -> case Eval.evalExpr mempty expr of
+              Right (Parser.EStr txt) -> T.writeFile fp txt
+              res -> T.putStrLn "Not string:" >> Pretty.pPrint res
             Right txt -> T.writeFile fp txt
 
 solveSpaceship :: Int -> IO ()
@@ -146,9 +148,12 @@ mainQuery message =
     Right text -> T.putStrLn text
     otherResponseExpression -> Pretty.pPrint otherResponseExpression
 
+mainEvalFile :: FilePath -> IO ()
+mainEvalFile fp = mainEval =<< fmap T.strip (T.readFile fp)
+
 mainEval :: Text -> IO ()
 mainEval message = case Parser.parseExpr message of
   Left err -> error err
   Right expr -> case Eval.evalExpr mempty expr of
-    Right (Parser.EStr txt) -> T.putStrLn (Parser.decodeString txt)
+    Right (Parser.EStr txt) -> T.putStrLn txt
     res -> Pretty.pPrint res
