@@ -101,6 +101,7 @@ library
                      , LambdaMan
                      , Codegen
                      , LambdaMan.Pictures
+                     , LambdaMan.Types
   hs-source-dirs:      src
 
 test-suite  checks
