@@ -59,6 +59,7 @@ mainPush =
     | "courses/" `T.isPrefixOf` path && ".bytes" `T.isSuffixOf` path = case status of
         "??" -> doPush path
         "AM" -> doPush path
+        "M" -> doPush path
         "A" -> pure ()
         _ -> putStrLn $ "Ignoring path: " <> status <> " " <> show path
   pushSolution _ = pure ()
