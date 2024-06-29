@@ -3,28 +3,27 @@ module Main where
 import RIO
 import RIO.ByteString.Lazy qualified as Bytes
 import RIO.Char
-import RIO.Text qualified as Text
 import RIO.List.Partial qualified as Partial
+import RIO.Text qualified as Text
 import RIO.Text.Partial qualified as PartialText
 
 import Control.Monad.Trans.Writer.CPS
 import Data.Coerce
 import Data.Text.IO qualified as Text
 import System.FilePath
+import System.IO.Error
 import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Text ()
 import Test.Tasty
 import Test.Tasty.Golden
 import Test.Tasty.QuickCheck
-import System.IO.Error
 
+import LambdaMan qualified
 import ProgCon.API
 import ProgCon.Eval
 import ProgCon.Parser
 import ProgCon.Printer qualified as Printer
 import Spaceship qualified
-import qualified LambdaMan
-import qualified Codegen
 
 main :: IO ()
 main = writerMain do
@@ -117,12 +116,11 @@ getMap number = write do
   let source = "examples" </> "lambdaman" </> show number </> "problem.expression"
   let target = "examples" </> "lambdaman" </> show number </> "problem.string"
   goldenVsString "get map" target do
-    expression ← getExpressionFromFile source
+    expression <- getExpressionFromFile source
     case evalExpr emptyEnvironment expression of
-      Left errorMessage → throwIO do CannotEvaluate expression errorMessage
-      Right (EStr text) → (pure . Bytes.fromStrict . Text.encodeUtf8) text
-      Right otherExpression → throwIO do ExpectedString otherExpression
-
+      Left errorMessage -> throwIO do CannotEvaluate expression errorMessage
+      Right (EStr text) -> (pure . Bytes.fromStrict . Text.encodeUtf8) text
+      Right otherExpression -> throwIO do ExpectedString otherExpression
 
 getSolutionExpression :: String -> Natural -> (Expr -> Either String Expr) -> Writer ([TestTree] -> [TestTree]) ()
 getSolutionExpression name number solve =
