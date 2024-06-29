@@ -16,7 +16,6 @@ import ProgCon.Printer qualified as Printer
 import RIO.Directory (createDirectoryIfMissing, doesFileExist)
 import SimpleCmd.Git qualified
 import Spaceship qualified
-import Codegen qualified
 
 main :: IO ()
 main = do
@@ -153,7 +152,7 @@ mainQuery :: Text -> IO ()
 mainQuery message =
   handleQuery message >>= \case
     Right text -> T.putStrLn text
-    otherResponseExpression -> Pretty.pPrint otherResponseExpression
+    Left expr -> T.putStrLn $ Printer.print expr
 
 mainEvalFile :: FilePath -> IO ()
 mainEvalFile fp = mainEval =<< fmap T.strip (T.readFile fp)
