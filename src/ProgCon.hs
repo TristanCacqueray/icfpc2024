@@ -6,6 +6,7 @@ import Data.Text.Lazy as T (toStrict)
 import RIO
 import SimpleCmdArgs
 import Text.Pretty.Simple qualified as Pretty
+import Graphics.Gloss qualified as Gloss
 
 import LambdaMan qualified
 import ProgCon.API
@@ -17,6 +18,7 @@ import ProgCon.Printer qualified as Printer
 import RIO.Directory (createDirectoryIfMissing, doesFileExist)
 import SimpleCmd.Git qualified
 import Spaceship qualified
+import Spaceship.Pictures qualified
 
 main :: IO ()
 main = do
@@ -45,6 +47,8 @@ mainMain =
       , Subcommand "eval-file" "eval a message" $ mainEvalFile <$> strArg "FP"
       , Subcommand "solve-spaceship" "solve a spaceship puzzle" $
           solveSpaceship <$> argumentWith auto "NUM"
+      , Subcommand "draw-spaceship" "draw a spaceship puzzle" $
+          drawSpaceship <$> argumentWith auto "NUM"
       , Subcommand "pull-puzzles" "fetch all the puzzles" $
           pure mainPull
       , Subcommand "push-solutions" "submit all new solutions" $ pure mainPush
@@ -117,6 +121,18 @@ solveSpaceship nr = do
   let ofp = "courses/spaceship/" <> show nr <> ".bytes"
   putStrLn $ "Done: " <> show (length thrusts)
   T.writeFile ofp $ Printer.print $ EStr $ "solve spaceship" <> T.pack (show nr <> " " <> thrusts)
+
+drawSpaceship :: Int -> IO ()
+drawSpaceship nr = do
+  let ifp = "courses/spaceship/" <> show nr <> ".txt"
+  courseInput <- T.readFile ifp
+  let targets = Spaceship.parseInput courseInput
+  putStrLn $ "Solving " <> ifp <> ": " <> show (length targets)
+  let ordered = Spaceship.optimizeOrder targets
+  Gloss.display glossWin Gloss.white (Spaceship.Pictures.drawSpaceship 0 ordered)
+
+glossWin :: Gloss.Display
+glossWin = Gloss.InWindow "icfp2024" (1024, 1080) (10, 10)
 
 mainCommunicate :: Text -> IO ()
 mainCommunicate message = do

@@ -98,6 +98,7 @@ library
                      , ProgCon.Syntax
                      , ProgCon.Utils
                      , Spaceship
+                     , Spaceship.Pictures
                      , LambdaMan
                      , Codegen
                      , LambdaMan.Pictures
