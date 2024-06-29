@@ -151,7 +151,7 @@ communicateSolution name number =
         fmap
         do getExpressionFromFile ("examples" </> problem </> "solution.expression")
         \case
-          EStr text -> Codegen.pack (Text.unwords ["solve", Text.pack name <> (Text.pack . show) number, text])
+          EStr text -> EStr (Text.unwords ["solve", Text.pack name <> (Text.pack . show) number, text])
           _ -> error "Not implemented."
  where
   problem = problemPath name number
