@@ -65,47 +65,93 @@ slowChecks = do
 checkProblem :: ProblemDefinition -> Writer ([TestTree] -> [TestTree]) ()
 checkProblem ProblemDefinition {..} = testWriter name do
   forM_ [1 .. size] \number ->
-    let problem = "spaceship" </> show number
-    in  sequentialTestWriter (show number) do
-          checkCommunication
-            problem
-            "communicate problem"
-            do pure do EStr (Text.unwords ["get", "spaceship" <> (Text.pack . show) number])
+    sequentialTestWriter (unwords ["problem", show number]) do
+      communicateProblem name number
+      getProblemExpression name number
+      getSolutionExpression name number solve
+      communicateSolution name number
 
-          write do
-            let source = "examples" </> problem </> "communicate problem" </> "response.expression.new"
-            let target = "examples" </> problem </> "problem.expression"
-            goldenVsFile "get problem expression" target source (pure ())
+problemPath :: FilePath -> Natural -> FilePath
+problemPath name number = name </> show number
 
-          write do
-            let source = "examples" </> problem </> "problem.expression"
-            let target = "examples" </> problem </> "solution.expression"
-            goldenVsString
-              "get solution expression"
-              target
-              do
-                problemExpressionText <- Text.readFile source
-                do
-                  problemExpression <- case (readMaybe @Expr . Text.unpack) problemExpressionText of
-                    Nothing -> error "Problem is encoded incorrectly!"
-                    Just expression -> pure expression
-                  solutionExpression <- case solve problemExpression of
-                    Left errorMessage -> error errorMessage
-                    Right solution -> pure solution
-                  pure do (Bytes.fromStrict . Text.encodeUtf8 . Text.pack . show) solutionExpression
+communicateProblem :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
+communicateProblem name number =
+  checkCommunication
+    problem
+    "communicate problem"
+    do pure do EStr (Text.unwords ["get", "spaceship" <> (Text.pack . show) number])
+ where
+  problem = problemPath name number
 
-          checkCommunication
-            problem
-            "communicate solution"
-            do
-              flip
-                fmap
-                do Text.readFile ("examples" </> problem </> "solution.expression")
-                \solutionExpressionText ->
-                  case (readMaybe @Expr . Text.unpack) solutionExpressionText of
-                    Nothing -> error "Solution is encoded incorrectly!"
-                    Just (EStr text) -> EStr (Text.unwords ["solve", "spaceship" <> (Text.pack . show) number, text])
-                    Just _ -> error "Not implemented."
+getProblemExpression :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
+getProblemExpression name number =
+  write do
+    let source = "examples" </> problem </> "communicate problem" </> "response.expression.new"
+    let target = "examples" </> problem </> "problem.expression"
+    goldenVsFile "get problem expression" target source (pure ())
+ where
+  problem = problemPath name number
+
+getSolutionExpression :: String -> Natural -> (Expr -> Either String Expr) -> Writer ([TestTree] -> [TestTree]) ()
+getSolutionExpression name number solve =
+  write do
+    let source = "examples" </> problem </> "problem.expression"
+    let target = "examples" </> problem </> "solution.expression"
+    goldenVsString
+      "get solution expression"
+      target
+      do
+        problemExpression <- getExpressionFromFile source
+        solutionExpression <- case solve problemExpression of
+          Left errorMessage -> throwIO do CannotSolveProblem errorMessage
+          Right solution -> pure solution
+        pure do expressionToBytes solutionExpression
+ where
+  problem = problemPath name number
+
+communicateSolution :: String -> Natural -> Writer ([TestTree] -> [TestTree]) ()
+communicateSolution name number =
+  checkCommunication
+    problem
+    "communicate solution"
+    do
+      flip
+        fmap
+        do getExpressionFromFile ("examples" </> problem </> "solution.expression")
+        \solutionExpression ->
+          case solutionExpression of
+            EStr text -> EStr (Text.unwords ["solve", "spaceship" <> (Text.pack . show) number, text])
+            _ -> error "Not implemented."
+ where
+  problem = problemPath name number
+
+getExpressionFromFile :: FilePath -> IO Expr
+getExpressionFromFile filePath = do
+  expressionText <- Text.readFile filePath
+  case (readMaybe @Expr . Text.unpack) expressionText of
+    Nothing -> throwIO do CannotReadExpression expressionText
+    Just expression -> pure expression
+
+expressionToBytes :: Expr -> Bytes.ByteString
+expressionToBytes = Bytes.fromStrict . Text.encodeUtf8 . Text.pack . show
+
+decodeExpressionFromFile :: FilePath -> IO Expr
+decodeExpressionFromFile filePath = do
+  expressionBytes <- Bytes.readFile filePath
+  expression <- case (parseExpr . Text.decodeUtf8With lenientDecode . Bytes.toStrict) expressionBytes of
+    Right parsedExpression -> pure parsedExpression
+    Left errorMessage -> throwIO do CannotDecodeExpression errorMessage
+  pure expression
+
+encodeExpressionToBytes :: Expr -> Bytes.ByteString
+encodeExpressionToBytes = Bytes.fromStrict . Text.encodeUtf8 . Printer.print
+
+data CheckingException
+  = CannotReadExpression Text
+  | CannotDecodeExpression String
+  | CannotSolveProblem String
+  deriving (Show)
+instance Exception CheckingException
 
 newtype AppropriateText = AppropriateText Text deriving newtype (Show, Eq, Ord)
 instance Arbitrary AppropriateText where
@@ -122,45 +168,34 @@ instance Arbitrary AppropriateEncodedText where
   shrink = coerce (shrink :: Text -> [Text])
 
 checkCommunication :: String -> String -> IO Expr -> Writer ([TestTree] -> [TestTree]) ()
-checkCommunication problem task getExpression =
-  let rootPath = "examples" </> problem </> task
-      getEncodedExpression = fmap Printer.print getExpression
-  in  sequentialTestWriter task do
-        write do
-          goldenVsString
-            "input"
-            (rootPath </> "request.expression")
-            do fmap (Bytes.fromStrict . Text.encodeUtf8 . Text.pack . show) getExpression
-        write do
-          goldenVsString
-            "encoding"
-            (rootPath </> "request.bytes")
-            do fmap (Bytes.fromStrict . Text.encodeUtf8) getEncodedExpression
-        write do
-          goldenVsString
-            "fetching"
-            (rootPath </> "response.bytes")
-            do
-              requestBytes <- Bytes.readFile (rootPath </> "request.bytes")
-              postBytes requestBytes
-        write do
-          goldenVsFile
-            "decoding"
-            (rootPath </> "response.expression")
-            (rootPath </> "response.expression.new")
-            do
-              responseBytes <- Bytes.readFile (rootPath </> "response.bytes")
-              output <- case (parseExpr . Text.decodeUtf8With lenientDecode . Bytes.toStrict) responseBytes of
-                Right parsedExpression -> (pure . Bytes.fromStrict . Text.encodeUtf8 . Text.pack . show) parsedExpression
-                Left errorMessage -> error errorMessage
-              Bytes.writeFile (rootPath </> "response.expression.new") output
-
-checkQueryString :: TestName -> TestTree
-checkQueryString path = goldenVsString
-  path
-  ("examples" </> "queryString" </> path <.> "text")
-  do
-    fmap (Bytes.fromStrict . Text.encodeUtf8) (queryString (Text.pack path))
+checkCommunication problem task getExpression = sequentialTestWriter task do
+  write do
+    goldenVsString
+      "input"
+      (rootPath </> "request.expression")
+      do fmap expressionToBytes getExpression
+  write do
+    goldenVsString
+      "encoding"
+      (rootPath </> "request.bytes")
+      do fmap encodeExpressionToBytes getExpression
+  write do
+    goldenVsString
+      "fetching"
+      (rootPath </> "response.bytes")
+      do
+        requestBytes <- Bytes.readFile (rootPath </> "request.bytes")
+        postBytes requestBytes
+  write do
+    goldenVsFile
+      "decoding"
+      (rootPath </> "response.expression")
+      (rootPath </> "response.expression.new")
+      do
+        responseExpression <- decodeExpressionFromFile (rootPath </> "response.bytes")
+        Bytes.writeFile (rootPath </> "response.expression.new") (expressionToBytes responseExpression)
+ where
+  rootPath = "examples" </> problem </> task
 
 writerMain :: Writer ([TestTree] -> [TestTree]) () -> IO ()
 writerMain = defaultMain . testGroup "main" . ($ []) . execWriter
