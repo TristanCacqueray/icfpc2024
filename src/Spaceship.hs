@@ -38,26 +38,50 @@ idist :: IVec2 -> IVec2 -> Int32
 idist p t = withIVec2 (abs (p - t)) \x y -> do
   x + y
 
+withFVec :: IVec2 -> (Float -> Float -> a) -> a
+withFVec u cb = withIVec2 u \x y -> cb (fromIntegral x) (fromIntegral y)
+
+-- | Distance between 2 points
+fdist :: IVec2 -> IVec2 -> Float
+fdist p q = withFVec p \x1 y1 -> withFVec q \x2 y2 ->
+  sqrt ((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
 solve :: [IVec2] -> String
 solve = go [] initialShip
  where
   go acc _ship [] = concat (reverse acc)
   go acc ship (target : rest) = go (thrusts : acc) newShip rest
    where
-    (thrusts, newShip) = cruise ship target
+    (thrusts, newShip) = genCruise ship target
 
-cruise :: Ship -> IVec2 -> (String, Ship)
-cruise iship target = go "" iship
+type Target = IVec2
+
+genCruise :: Ship -> Target -> (String, Ship)
+genCruise iship target = go "" iship (fdist iship.pos target)
  where
-  go :: String -> Ship -> (String, Ship)
-  go acc ship
-    | ship.pos == target =
-        -- We arrived at destination, remove acceleration and stop
-        (reverse $ thrustChar (decelerate ship) : acc, Ship target (ivec2 0 0))
-    | otherwise =
-        -- We are on our way, add thrust if necessary and keep on going
-        let thrust = accelerate ship target
-        in  go (thrustChar thrust : acc) (applyThrust thrust ship)
+  go :: String -> Ship -> Float -> (String, Ship)
+  go acc ship prevDist
+    | ship.pos == target = (reverse newAcc, newShip)
+    | newDist > prevDist = error $ "Not getting closer " <> show ship <> " + " <> show thrust <> " for " <> show target
+    | otherwise = go newAcc newShip newDist
+   where
+    thrust = genShipThrust ship target
+    newShip = applyThrust thrust ship
+    newDist = fdist newShip.pos target
+    newAcc = thrustChar thrust : acc
+
+-- | Compute the thrust to apply for reaching the target.
+genShipThrust :: Ship -> Target -> IVec2
+genShipThrust ship target =
+  withIVec2 ship.vel \vx vy -> withIVec2 ship.pos \x y -> withIVec2 target \tx ty ->
+    ivec2 (genThrust vx x tx) (genThrust vy y ty)
+
+-- | A basic one thrust implementation
+genThrust :: Int32 -> Int32 -> Int32 -> Int32
+genThrust velocity start end
+  | velocity == 0 = signum (end - start)
+  | start == end = negate velocity
+  | otherwise = 0
 
 -- | Update the ship based on a new thrust
 applyThrust :: IVec2 -> Ship -> Ship
@@ -65,15 +89,6 @@ applyThrust thrust ship = Ship {vel, pos}
  where
   vel = ship.vel + thrust
   pos = ship.pos + vel
-
--- | Compute the signed thrust to go toward the target
-accelerate :: Ship -> IVec2 -> IVec2
-accelerate ship target =
-  let thrust = signum $ target - ship.pos
-  in  thrust - ship.vel
-
-decelerate :: Ship -> IVec2
-decelerate ship = negate ship.vel
 
 data Ship = Ship
   { pos :: IVec2
@@ -155,7 +170,7 @@ spec = do
     , (testCruise 2 2, "951")
     , (testCruise (-2) (-2), "159")
     ]
-  testCruise x y = fst $ cruise initialShip (ivec2 x y)
+  testCruise x y = fst $ genCruise initialShip (ivec2 x y)
   expPath = map (uncurry ivec2) [(0, 0), (0, -1), (1, -3), (3, -5), (6, -7), (9, -9), (13, -10)]
   resPath = testPath "236659"
 
