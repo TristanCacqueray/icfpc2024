@@ -42,6 +42,7 @@ common common
     MultiWayIf
     UnicodeSyntax
     ViewPatterns
+    RecordWildCards
 
 executable progcon
   import:              common
@@ -110,4 +111,5 @@ test-suite  checks
                         , transformers
                         , filepath
                         , quickcheck-instances
+                        , text
             default-extensions: NoImplicitPrelude

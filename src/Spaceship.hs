@@ -3,6 +3,11 @@ module Spaceship where
 import Data.Attoparsec.Text qualified as P
 import Geomancy.IVec2
 import RIO
+import RIO.Text qualified as Text
+
+import ProgCon.Eval
+import ProgCon.Parser
+import ProgCon.Printer qualified as Printer
 
 optimizeOrder :: [IVec2] -> [IVec2]
 optimizeOrder = go [] (ivec2 0 0)
@@ -14,15 +19,18 @@ optimizeOrder = go [] (ivec2 0 0)
     let
       -- Get the new closest post and the list of remaining targets
       ((_, closestPos), others) = foldl' (go' pos) ((idist pos x, x), []) xs
-    in  go (closestPos : acc) closestPos others
+    in
+      go (closestPos : acc) closestPos others
 
   -- Separate the closest position from the rest
   go' :: IVec2 -> ((Int32, IVec2), [IVec2]) -> IVec2 -> ((Int32, IVec2), [IVec2])
   go' pos (prev@(prevClosestDistance, prevClosestPos), others) target
     | -- The current target is the new closest, move the previous closest to the others list
-      targetDist < prevClosestDistance = ((targetDist, target), prevClosestPos : others)
+      targetDist < prevClosestDistance =
+        ((targetDist, target), prevClosestPos : others)
     | -- otherwise keep the previous closest
-      otherwise = (prev, target : others)
+      otherwise =
+        (prev, target : others)
    where
     targetDist = idist pos target
 
@@ -161,3 +169,26 @@ coordP = do
   i2 <- P.signed P.decimal
   P.skipSpace
   pure (ivec2 i1 i2)
+
+solveExpression :: Expr -> Either String Expr
+solveExpression inputExpression = do
+  evaluatedInputExpression <- evalExpr emptyEnvironment inputExpression
+  inputText <- case evaluatedInputExpression of
+    EStr text -> Right text
+    somethingElse -> Left (show somethingElse)
+  let parsedInput = parseInput inputText
+  let solution = solve parsedInput
+  let solutionExpression = EStr (Text.pack solution)
+  pure solutionExpression
+
+validateExpression :: Expr -> Either String Float
+validateExpression inputExpression = do
+  evaluatedInputExpression <- evalExpr emptyEnvironment inputExpression
+  inputText <- case evaluatedInputExpression of
+    EStr text -> Right text
+    somethingElse -> Left (show somethingElse)
+  let parsedInput = parseInput inputText
+  let solution = solve parsedInput
+  case validateSolution parsedInput solution of
+    [] -> Right do 100 / (fromIntegral . Text.length . Printer.print . EStr . Text.pack) solution
+    list -> Left (show list)
