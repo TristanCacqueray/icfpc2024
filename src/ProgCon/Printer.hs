@@ -1,16 +1,28 @@
 module ProgCon.Printer where
 
 import RIO
+import Data.Text qualified as T
 
 import ProgCon.Parser
 
+printer :: Expr -> Text
+printer = ProgCon.Printer.print
+
 print :: Expr -> Text
 print = \case
-  EBool _bool -> error "Not implemented."
-  EInt _natural -> error "Not implemented."
-  EStr text -> "S" <> encodeString text
-  EUnary _unaryOp _expr -> error "Not implemented."
-  EBinary _char _expr1 _expr2 -> error "Not implemented."
-  EIf _conditional _whenTrue _whenFalse -> error "Not implemented."
-  ELam _natural _body -> error "Not implemented."
-  EVar _natural -> error "Not implemented."
+  EBool True -> T.singleton 'T'
+  EBool False -> T.singleton 'F'
+  EInt nat -> T.cons 'I' (int2str nat)
+  EStr text -> T.cons 'S' (encodeString text)
+  EUnary unaryOp expr -> T.unwords [T.cons 'U' (printUnary unaryOp), printer expr]
+  EBinary c expr1 expr2 -> T.unwords [T.cons 'B' (T.singleton c), printer expr1, printer expr2]
+  EIf condition expr1 expr2 -> T.unwords ["?", printer condition, printer expr1, printer expr2]
+  ELam nat body -> T.unwords [T.cons 'L' (int2str nat), printer body]
+  EVar nat -> T.cons 'v' (int2str nat)
+
+printUnary :: UnaryOp -> Text
+printUnary = \case
+  UNeg -> "-"
+  UNot -> "!"
+  Ustr2int -> "#"
+  Uint2str -> "$"
