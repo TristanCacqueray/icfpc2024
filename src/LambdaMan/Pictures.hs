@@ -14,10 +14,10 @@ bigness :: Float
 bigness = 20
 
 area :: V2 Float -> Picture
-area (V2 width height) = Translate ((width + 1) / 2) ((height + 1) / 2) do
+area (V2 width height) = Translate (width / 2) (height / 2) do
   Pictures
-    [ Color (greyN 0.1) do rectangleSolid (width + 1) (height + 1)
-    , Color (greyN 0.2) do rectangleWire (width + 1) (height + 1)
+    [ Color (greyN 0.1) do rectangleSolid (width + 1.5) (height + 1.5)
+    , Color (greyN 0.2) do rectangleWire (width + 1.5) (height + 1.5)
     ]
 wall :: Float -> Float -> Picture
 wall x y = Translate x y let z = 0.4 in Color (greyN 0.6) do Polygon [(z, z), (z, -z), (-z, -z), (-z, z)]
