@@ -3,10 +3,10 @@ module ProgCon (main) where
 import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import Data.Text.Lazy as T (toStrict)
+import Graphics.Gloss qualified as Gloss
 import RIO
 import SimpleCmdArgs
 import Text.Pretty.Simple qualified as Pretty
-import Graphics.Gloss qualified as Gloss
 
 import LambdaMan qualified
 import ProgCon.API
@@ -62,7 +62,7 @@ mainPush =
   SimpleCmd.Git.git "status" ["--porcelain"] >>= \(lines -> xs) -> do
     traverse_ pushSolution xs
  where
-  pushSolution (_:status:_:path)
+  pushSolution (_ : status : _ : path)
     | "courses/" `T.isPrefixOf` T.pack path && ".bytes" `T.isSuffixOf` T.pack path = case status of
         '?' -> doPush path
         'M' -> doPush path

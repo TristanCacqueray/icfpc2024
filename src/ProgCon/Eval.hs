@@ -6,12 +6,12 @@ import RIO
 
 evalExpr :: Expr -> Either String Expr
 evalExpr expr = case expr of
-  EUnary UNeg e | Right (EInt x) <- evalExpr e -> pure $ EInt (negate x)
-  EUnary UNeg e -> Left $ "Bad uneg: " <> show e
-  EUnary UNot e | Right (EBool x) <- evalExpr e -> pure $ EBool (not x)
-  EUnary UNot e -> Left $ "Bad unot: " <> show e
-  EUnary Ustr2int e | Right (EStr x) <- evalExpr e -> pure $ EInt $ str2int x
-  EUnary Uint2str e | Right (EInt x) <- evalExpr e -> pure $ EStr $ int2str x
+  EUnary '-' e | Right (EInt x) <- evalExpr e -> pure $ EInt (negate x)
+  EUnary '-' e -> Left $ "Bad uneg: " <> show e
+  EUnary '!' e | Right (EBool x) <- evalExpr e -> pure $ EBool (not x)
+  EUnary '!' e -> Left $ "Bad unot: " <> show e
+  EUnary '#' e | Right (EStr x) <- evalExpr e -> pure $ EInt $ str2int x
+  EUnary '$' e | Right (EInt x) <- evalExpr e -> pure $ EStr $ int2str x
   EUnary {} -> Left $ "Bad unary: " <> show expr
   EBinary op e1 e2
     | Right (EInt x) <- evalExpr e1
@@ -67,7 +67,7 @@ substitute name expr = \case
 integerOp :: Char -> Maybe (Natural -> Natural -> Expr)
 integerOp = \case
   '+' -> Just (\x y -> EInt (x + y))
-  '-' -> Just (\x y -> if x > y then EInt (x - y) else EUnary UNeg (EInt (y - x)))
+  '-' -> Just (\x y -> if x > y then EInt (x - y) else EUnary '-' (EInt (y - x)))
   '*' -> Just (\x y -> EInt (x * y))
   '/' -> Just (\x y -> EInt (x `div` y))
   '%' -> Just (\x y -> EInt (x `mod` y))

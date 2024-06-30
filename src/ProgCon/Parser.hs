@@ -13,14 +13,11 @@ data Expr
   = EBool Bool
   | EInt Natural
   | EStr Text
-  | EUnary UnaryOp Expr
+  | EUnary Char Expr
   | EBinary Char Expr Expr
   | EIf Expr Expr Expr
   | ELam Natural Expr
   | EVar Natural
-  deriving (Show, Read, Eq, Ord)
-
-data UnaryOp = UNeg | UNot | Ustr2int | Uint2str
   deriving (Show, Read, Eq, Ord)
 
 parseExpr :: Text -> Either String Expr
@@ -40,21 +37,17 @@ exprP = P.skipSpace >> p
       <|> (P.char 'L' *> lambdaP)
       <|> taggedP 'v' EVar natP
 
+  taggedP :: Char -> (a -> b) -> P.Parser a -> P.Parser b
+  taggedP c tag parser = P.char c *> (tag <$> parser)
+
 lambdaP :: P.Parser Expr
 lambdaP = ELam <$> natP <*> exprP
 
 ifP :: P.Parser Expr
 ifP = EIf <$> exprP <*> exprP <*> exprP
 
-taggedP :: Char -> (a -> b) -> P.Parser a -> P.Parser b
-taggedP c tag p = P.char c *> (tag <$> p)
-
 unaryP :: P.Parser Expr
-unaryP =
-  taggedP '-' (EUnary UNeg) exprP
-    <|> taggedP '!' (EUnary UNot) exprP
-    <|> taggedP '#' (EUnary Ustr2int) exprP
-    <|> taggedP '$' (EUnary Uint2str) exprP
+unaryP = EUnary <$> P.anyChar <*> exprP
 
 binaryP :: P.Parser Expr
 binaryP = EBinary <$> P.anyChar <*> exprP <*> exprP
