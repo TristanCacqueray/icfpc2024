@@ -1,6 +1,11 @@
+-- For HasField instance
+{-# LANGUAGE DataKinds #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Spaceship where
 
 import Data.Attoparsec.Text qualified as P
+import GHC.Records (HasField (getField))
 import Geomancy.IVec2
 import RIO
 import RIO.Text qualified as Text
@@ -35,16 +40,13 @@ optimizeOrder = go [] (ivec2 0 0)
     targetDist = idist pos target
 
 idist :: IVec2 -> IVec2 -> Int32
-idist p t = withIVec2 (abs (p - t)) \x y -> do
-  x + y
-
-withFVec :: IVec2 -> (Float -> Float -> a) -> a
-withFVec u cb = withIVec2 u \x y -> cb (fromIntegral x) (fromIntegral y)
+idist p t = dist.x + dist.y
+ where
+  dist = abs (p - t)
 
 -- | Distance between 2 points
 fdist :: IVec2 -> IVec2 -> Float
-fdist p q = withFVec p \x1 y1 -> withFVec q \x2 y2 ->
-  sqrt ((x2 - x1) ** 2 + (y2 - y1) ** 2)
+fdist p q = sqrt $ fromIntegral (q.x - p.x) ** 2 + fromIntegral (q.y - p.y) ** 2
 
 solve :: [IVec2] -> String
 solve = go [] initialShip
@@ -74,8 +76,9 @@ genCruise iship target = go "" iship (fdist iship.pos target)
 genShipThrust :: Ship -> Target -> IVec2
 genShipThrust ship target =
   -- traceShow ("genShipThrust" :: String, ship, target) $
-  withIVec2 ship.vel \vx vy -> withIVec2 ship.pos \x y -> withIVec2 target \tx ty ->
-    ivec2 (dbgVal "tx" $ genThrust vx x tx) (dbgVal "ty" $ genThrust vy y ty)
+  ivec2
+    (dbgVal "tx" $ genThrust ship.vel.x ship.pos.x target.x)
+    (dbgVal "ty" $ genThrust ship.vel.y ship.pos.y target.y)
 
 -- | A basic one thrust implementation
 genThrust :: Int32 -> Int32 -> Int32 -> Int32
@@ -149,18 +152,17 @@ charVel = \case
 
 thrustChar :: IVec2 -> Char
 thrustChar thrust =
-  withIVec2 thrust \x y ->
-    case (x, y) of
-      (1, 1) -> '9'
-      (0, 1) -> '8'
-      (-1, 1) -> '7'
-      (1, 0) -> '6'
-      (0, 0) -> '5'
-      (-1, 0) -> '4'
-      (1, -1) -> '3'
-      (0, -1) -> '2'
-      (-1, -1) -> '1'
-      _ -> 'X'
+  case (thrust.x, thrust.y) of
+    (1, 1) -> '9'
+    (0, 1) -> '8'
+    (-1, 1) -> '7'
+    (1, 0) -> '6'
+    (0, 0) -> '5'
+    (-1, 0) -> '4'
+    (1, -1) -> '3'
+    (0, -1) -> '2'
+    (-1, -1) -> '1'
+    _ -> 'X'
 
 testPath :: String -> [IVec2]
 testPath = go [initialShip.pos] initialShip
@@ -229,3 +231,8 @@ validateExpression inputExpression = do
   case validateSolution parsedInput solution of
     [] -> Right do 100 / (fromIntegral . Text.length . Printer.print . EStr . Text.pack) solution
     list -> Left (show list)
+
+-- | Helpers to access ivec2 components with '.x' and '.y'
+instance HasField "x" IVec2 Int32 where getField v = withIVec2 v \x _ -> x
+
+instance HasField "y" IVec2 Int32 where getField v = withIVec2 v \_ y -> y

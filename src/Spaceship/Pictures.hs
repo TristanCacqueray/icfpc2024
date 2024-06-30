@@ -2,12 +2,10 @@ module Spaceship.Pictures where
 
 import Geomancy.IVec2
 import Graphics.Gloss
+import Spaceship
 
-drawSpaceship :: IVec2 -> [IVec2] -> Picture
-drawSpaceship pos targets = Pictures $ drawPos green pos : map (drawPos orange) targets
+drawSpaceship :: IVec2 -> [Target] -> Picture
+drawSpaceship pos targets = Pictures $ drawDot green pos : map (drawDot orange) targets
  where
-  drawPos col xy = withIVec2 xy \x y -> do
-    Translate (fromIntegral x) (fromIntegral y) $ Color col $ circleSolid 1
-
-posPoint :: IVec2 -> (Float, Float)
-posPoint xy = withIVec2 xy \x y -> (fromIntegral x, fromIntegral y)
+  drawDot col coord =
+    Translate (fromIntegral coord.x) (fromIntegral coord.y) $ Color col $ circleSolid 1
