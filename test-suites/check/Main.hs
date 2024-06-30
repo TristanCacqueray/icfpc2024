@@ -38,7 +38,7 @@ main = writerMain do
 data ProblemDefinition = ProblemDefinition
   { name :: String
   , size :: Natural
-  , solve :: Expr -> Either String Expr
+  , solve :: Natural -> Expr -> Either String Expr
   , validate :: Expr -> Either String Float
   }
 
@@ -123,7 +123,7 @@ checkProblem ProblemDefinition {..} = testWriter name do
       communicateProblem name number
       getProblemExpression name number
       when (name == "lambdaman") do getMap number
-      getSolutionExpression name number solve
+      getSolutionExpression name number (solve number)
       communicateSolution name number
       checkCorrectness name number
       checkCost name number
@@ -187,8 +187,7 @@ communicateSolution name number =
         fmap
         do getExpressionFromFile ("examples" </> problem </> "solution.expression")
         \case
-          EStr text -> EStr (Text.unwords ["solve", Text.pack name <> (Text.pack . show) number, text])
-          _ -> error "Not implemented."
+          expr -> expr
  where
   problem = problemPath name number
 

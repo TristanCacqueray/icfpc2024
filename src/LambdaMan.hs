@@ -219,8 +219,12 @@ expressionToBoard expression = case evalExpr expression of
   Left errorMessage -> error errorMessage
   Right otherExpression -> error (show otherExpression)
 
-solutionToExpression :: ByteArray -> Expr
-solutionToExpression = EStr . Text.pack . concatMap show . pathToDirections
+solutionToExpression :: Natural -> ByteArray -> Expr
+solutionToExpression nr bs =
+  EStr
+    . Text.pack
+    . unwords
+    $ ["solve", "lambdaman" <> show nr, concatMap show $ pathToDirections bs]
 
 solve :: Board -> ByteArray
 solve = computeOptimalTraversal . computeSpanningTree
@@ -261,8 +265,8 @@ validateSolution Board {..} solution = case (filter (\spot -> not (spot == Wall 
       let index = indexAtZero + me in writeArray mutableArray index FootStep
     pure mutableArray
 
-solveExpression :: Expr -> Either String Expr
-solveExpression = Right . solutionToExpression . solve . expressionToBoard
+solveExpression :: Natural -> Expr -> Either String Expr
+solveExpression nr = Right . solutionToExpression nr . solve . expressionToBoard
 
 validateExpression :: Expr -> Either String Float
 validateExpression expression = let board = expressionToBoard expression in validateSolution board (solve board)

@@ -209,15 +209,15 @@ coordP = do
   P.skipSpace
   pure (ivec2 i1 i2)
 
-solveExpression :: Expr -> Either String Expr
-solveExpression inputExpression = do
+solveExpression :: Natural -> Expr -> Either String Expr
+solveExpression nr inputExpression = do
   evaluatedInputExpression <- evalExpr inputExpression
   inputText <- case evaluatedInputExpression of
     EStr text -> Right text
     somethingElse -> Left (show somethingElse)
   let parsedInput = parseInput inputText
   let solution = solve parsedInput
-  let solutionExpression = EStr (Text.pack solution)
+  let solutionExpression = EStr $ Text.pack $ unwords ["solve", "spaceship" <> show nr, solution]
   pure solutionExpression
 
 validateExpression :: Expr -> Either String Float
