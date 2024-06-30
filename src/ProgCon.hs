@@ -128,7 +128,8 @@ drawSpaceship nr = do
   let targets = Spaceship.parseInput courseInput
   putStrLn $ "Solving " <> ifp <> ": " <> show (length targets)
   let ordered = Spaceship.optimizeOrder targets
-  Gloss.display glossWin Gloss.white (Spaceship.Pictures.drawSpaceship 0 ordered)
+  let model = Spaceship.Pictures.newModel (Spaceship.solve ordered, ordered)
+  Gloss.simulate glossWin Gloss.white 3 model Spaceship.Pictures.drawModel (const Spaceship.Pictures.stepModel)
 
 glossWin :: Gloss.Display
 glossWin = Gloss.InWindow "icfp2024" (1024, 1080) (10, 10)
