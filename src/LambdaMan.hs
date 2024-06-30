@@ -79,6 +79,7 @@ animation _ _ currentAnimationState@AnimationState {..} = case ByteArray.uncons 
     AnimationState
       { board = (markLegalSteps . fromMaybe (error "Legal step failed!") . flip makeStep direction . unmarkLegalSteps) board
       , solution = solutionTail
+      , spanningTree
       , ..
       }
 
@@ -116,8 +117,8 @@ makeStep Board {..} direction =
                   }
         _ -> Nothing
 
-legalSteps :: Board -> [Direction]
-legalSteps board = filter (isJust . makeStep board) [minBound .. maxBound]
+pureLegalStepsWithoutRetracing :: Board -> [Direction]
+pureLegalStepsWithoutRetracing Board {..} = filter (\direction -> maybe False canStepOnThisWithoutRetracing (array ? (me + vectorOfDirection direction))) [minBound .. maxBound]
 
 readArraySafely :: (Ix index, MArray array value monad) => array index value -> index -> monad (Maybe value)
 readArraySafely array index = do
@@ -137,7 +138,7 @@ markLegalSteps board@Board {..} =
   board
     { array = runSTArray do
         mutableArray <- thaw array
-        forM_ (legalSteps board) \direction -> writeArray mutableArray (me + vectorOfDirection direction) LegalStep
+        forM_ (pureLegalStepsWithoutRetracing board) \direction -> writeArray mutableArray (me + vectorOfDirection direction) LegalStep
         pure mutableArray
     }
 
@@ -146,7 +147,7 @@ unmarkLegalSteps board@Board {..} =
   board
     { array = runSTArray do
         mutableArray <- thaw array
-        forM_ (legalSteps board) \direction -> writeArray mutableArray (me + vectorOfDirection direction) Floor
+        forM_ (pureLegalStepsWithoutRetracing board) \direction -> writeArray mutableArray (me + vectorOfDirection direction) Floor
         pure mutableArray
     }
 
@@ -162,27 +163,44 @@ unfoldPaths me = Compose do
   pure do me :< Map.fromList ways
 
 unfoldWithEffects
-  :: (Recursive recursive, Corecursive recursive, Traversable (Base recursive), Monad effect)
-  => (carrier -> (effect . Base recursive) carrier)
+  :: (Recursive recursive, Monad effect)
+  => ( Base recursive (effect recursive)
+       -> effect recursive
+     )
+  -> (carrier -> (effect . Base recursive) carrier)
   -> carrier
   -> effect recursive
-unfoldWithEffects = refold sequencer
- where
-  sequencer
-    :: (Corecursive recursive, Traversable (Base recursive), Monad effect)
-    => Compose effect (Base recursive) (effect recursive)
-    -> effect recursive
-  sequencer = fmap embed . (=<<) sequence . getCompose
+unfoldWithEffects sequencer = refold ((=<<) sequencer . getCompose)
 
 unfoldSpanningTree :: V2 Int -> StateT (STArray lock (V2 Int) Spot) (ST lock) (Cofree (Map Direction) (V2 Int))
-unfoldSpanningTree = unfoldWithEffects unfoldPaths
+unfoldSpanningTree = unfoldWithEffects sequencer unfoldPaths
+
+sequencer
+  :: CofreeF (Map Direction) (V2 Int) (StateT (STArray lock (V2 Int) Spot) (ST lock) (Cofree (Map Direction) (V2 Int)))
+  -> StateT (STArray lock (V2 Int) Spot) (ST lock) (Cofree (Map Direction) (V2 Int))
+sequencer (me :< xs) = fmap (embed . (me :<) . Map.fromList) do helper (Map.toList xs)
+ where
+  helper
+    :: [(Direction, StateT (STArray lock (V2 Int) Spot) (ST lock) (Cofree (Map Direction) (V2 Int)))]
+    -> StateT (STArray lock (V2 Int) Spot) (ST lock) [(Direction, Cofree (Map Direction) (V2 Int))]
+  helper = fix \recurse -> \case
+    [] -> pure []
+    ((direction, y) : ys) -> do
+      mutableArray <- get
+      targetTile <- lift do readArray mutableArray (me + vectorOfDirection direction)
+      if canStepOnThisWithoutRetracing targetTile
+        then do
+          thisBranch <- y
+          otherBranches <- recurse ys
+          pure do (direction, thisBranch) : otherBranches
+        else recurse ys
 
 computeSpanningTree :: Board -> Cofree (Map Direction) (V2 Int)
 computeSpanningTree Board {..} = runST do
-  starray <- thaw array
-  evalStateT statefulSpanningTree starray
+  mutableArray <- thaw array
+  evalStateT statefulSpanningTree mutableArray
  where
-  statefulSpanningTree = unfoldSpanningTree me :: StateT (STArray lock1 (V2 Int) Spot) (ST lock1) (Cofree (Map Direction) (V2 Int))
+  statefulSpanningTree = unfoldSpanningTree me
 
 reversePath :: ByteArray -> ByteArray
 reversePath = ByteArray.reverse . ByteArray.map (word8OfDirection . reverseDirection . directionOfWord8)

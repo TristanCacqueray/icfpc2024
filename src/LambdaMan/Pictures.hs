@@ -2,12 +2,16 @@
 
 module LambdaMan.Pictures where
 
-import RIO
+import RIO hiding (fold)
 import RIO.ByteString qualified as ByteArray
+import RIO.Map qualified as Map
 
 import LambdaMan.Types
 
+import Control.Comonad.Cofree (Cofree)
+import Control.Comonad.Trans.Cofree (CofreeF ((:<)))
 import Data.Array hiding (array)
+import Data.Functor.Foldable
 import Graphics.Gloss
 import Linear
 
@@ -50,7 +54,7 @@ drawTile (fmap fromIntegral -> V2 x y, entity) = case entity of
 pictureOfAnimationState :: AnimationState -> Picture
 pictureOfAnimationState AnimationState {..} =
   (Scale bigness bigness . Translate (-width / 2) (-height / 2) . Pictures)
-    [pictureOfBoard board, pictureOfSolution board.me (ByteArray.unpack solution)]
+    [pictureOfBoard board, pictureOfSolution board.me (ByteArray.unpack solution {- , pictureOfSpanningTree spanningTree -})]
  where
   V2 width height = (fmap fromIntegral . snd . bounds) board.array
 
@@ -61,12 +65,23 @@ pictureOfSolution =
     (x : xs) ->
       let
         direction = directionOfWord8 x
-        delta = vectorOfDirection direction
-        newMe = me + delta
+        newMe = me + vectorOfDirection direction
       in
-        smallArrow me delta : recurse newMe xs
+        smallArrow red (fmap fromIntegral me) direction : recurse newMe xs
 
-smallArrow :: V2 Int -> V2 Int -> Picture
-smallArrow (fmap fromIntegral -> V2 x y) (fmap fromIntegral -> V2 0 dy) = Translate x (y + 0.5 * dy) do Color (withAlpha 0.33 red) do rectangleSolid 0.2 1
-smallArrow (fmap fromIntegral -> V2 x y) (fmap fromIntegral -> V2 dx 0) = Translate (x + 0.5 * dx) y do Color (withAlpha 0.33 red) do rectangleSolid 1 0.2
-smallArrow _ _ = error "Impossible delta movement."
+smallArrow :: Color -> V2 Float -> Direction -> Picture
+smallArrow colour (V2 x y) direction =
+  Translate x y do
+    Rotate ((fromIntegral . fromEnum) direction * (-90)) do
+      Color (withAlpha 0.33 colour) do
+        Polygon [(0.2, 0.4), (0, -0.4), (-0.2, 0.4)]
+
+pictureOfSpanningTree :: Cofree (Map Direction) (V2 Int) -> Picture
+pictureOfSpanningTree = Pictures . fold folding
+ where
+  folding (me :< leaves) = ((=<<) (uncurry drawArrow) . Map.toList) leaves
+   where
+    locationOfArrow direction = fmap fromIntegral me + (fmap fromIntegral . vectorOfDirection) direction / 2
+    drawArrow direction otherPictures =
+      smallArrow cyan (locationOfArrow direction) direction
+        : otherPictures
