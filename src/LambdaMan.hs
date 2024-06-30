@@ -9,6 +9,7 @@ import RIO.ByteString qualified as ByteArray
 import RIO.List qualified as List
 import RIO.List.Partial qualified as Partial
 import RIO.Map qualified as Map
+import RIO.Set qualified as Set
 import RIO.State
 import RIO.Text qualified as Text
 
@@ -188,7 +189,7 @@ reversePath = ByteArray.reverse . ByteArray.map (word8OfDirection . reverseDirec
 retractPaths :: [ByteArray] -> [ByteArray]
 retractPaths = fix \recurse -> \case
   [] -> []
-  (path : paths) -> path : reversePath path : recurse paths
+  (path : paths) -> path : (simplifyPath . reversePath) path : recurse paths
 
 pathToDirectionVectors :: ByteArray -> [V2 Int]
 pathToDirectionVectors = fmap (vectorOfDirection . directionOfWord8) . ByteArray.unpack
@@ -224,8 +225,29 @@ solutionToExpression = EStr . Text.pack . concatMap show . pathToDirections
 solve :: Board -> ByteArray
 solve = computeOptimalTraversal . computeSpanningTree
 
-traceSolution :: ByteArray -> [V2 Int]
-traceSolution = List.scanl (+) 0 . pathToDirectionVectors
+tracePath :: ByteArray -> [V2 Int]
+tracePath = List.scanl (+) 0 . pathToDirectionVectors
+
+simplifyPath :: ByteArray -> ByteArray
+simplifyPath path =
+  let
+    traced = zip (pathToDirections path) (tracePath path)
+    simplified = simplifyReversing Set.empty [] traced
+  in
+    (directionsToPath . reverse . fmap fst) simplified
+ where
+  simplifyReversing :: Set (V2 Int) -> [(Direction, V2 Int)] -> [(Direction, V2 Int)] -> [(Direction, V2 Int)]
+  simplifyReversing = fix \recurse visited simplifiedInReverse -> \case
+    [] -> simplifiedInReverse
+    ((direction, me) : remaining) ->
+      if me `Set.member` visited
+        then
+          let
+            (loop, ((_, _samePlace) : optimal)) = List.break ((== me) . snd) simplifiedInReverse
+            notVisitedActually = (Set.fromList . fmap snd) loop
+          in
+            recurse (visited Set.\\ notVisitedActually) ((direction, me) : optimal) remaining
+        else recurse (Set.insert me visited) ((direction, me) : simplifiedInReverse) remaining
 
 validateSolution :: Board -> ByteArray -> Either String Float
 validateSolution Board {..} solution = case (filter (\spot -> not (spot == Wall || spot == FootStep)) . elems) filledArray of
@@ -235,7 +257,7 @@ validateSolution Board {..} solution = case (filter (\spot -> not (spot == Wall 
   filledArray :: Array (V2 Int) Spot
   filledArray = runSTArray do
     mutableArray <- thaw array
-    forM_ (traceSolution solution) \indexAtZero ->
+    forM_ (tracePath solution) \indexAtZero ->
       let index = indexAtZero + me in writeArray mutableArray index FootStep
     pure mutableArray
 

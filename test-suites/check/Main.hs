@@ -5,6 +5,8 @@ import RIO.ByteString qualified as ByteArray
 import RIO.ByteString.Lazy qualified as Bytes
 import RIO.Char
 import RIO.List.Partial qualified as Partial
+import RIO.Set (isSubsetOf)
+import RIO.Set qualified as Set
 import RIO.Text qualified as Text
 import RIO.Text.Partial qualified as PartialText
 
@@ -19,6 +21,7 @@ import Test.Tasty
 import Test.Tasty.Golden
 import Test.Tasty.QuickCheck
 
+import LambdaMan (pathToDirections)
 import LambdaMan qualified
 import LambdaMan.Types qualified as LambdaMan
 import ProgCon.API
@@ -79,6 +82,19 @@ fastChecks = do
               in  counterexample (show (m, n, reversedSubstring)) (sum retractedSubstring === 0)
     writeProperty "retract paths" \(fmap LambdaMan.directionsToPath -> paths) ->
       (sum . LambdaMan.pathToDirectionVectors . ByteArray.concat . LambdaMan.retractPaths) paths === 0
+    writeProperty "simplified path has same ends" \(LambdaMan.directionsToPath -> path) ->
+      let newPath = LambdaMan.simplifyPath path
+      in  counterexample (show (pathToDirections newPath)) do
+            (sum . LambdaMan.pathToDirectionVectors) newPath === (sum . LambdaMan.pathToDirectionVectors) path
+    writeProperty "simplified path visits subset of points" \(LambdaMan.directionsToPath -> path) ->
+      let
+        simplifiedPath = (LambdaMan.simplifyPath path)
+        visitedBySimplifiedPath = Set.fromList (LambdaMan.tracePath simplifiedPath)
+        visitedByOriginalPath = Set.fromList (LambdaMan.tracePath path)
+      in
+        counterexample
+          (show (pathToDirections simplifiedPath, visitedBySimplifiedPath, visitedByOriginalPath))
+          do visitedBySimplifiedPath `isSubsetOf` visitedByOriginalPath
   testWriter "solutions" do
     forM_ problems fastCheckProblem
 
