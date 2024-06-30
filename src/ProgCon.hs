@@ -62,15 +62,14 @@ mainPush =
   SimpleCmd.Git.git "status" ["--porcelain"] >>= \(lines -> xs) -> do
     traverse_ pushSolution xs
  where
-  pushSolution (words -> [status, T.pack -> path])
-    | "courses/" `T.isPrefixOf` path && ".bytes" `T.isSuffixOf` path = case status of
-        "??" -> doPush path
-        "AM" -> doPush path
-        "M" -> doPush path
-        "A" -> pure ()
-        _ -> putStrLn $ "Ignoring path: " <> status <> " " <> show path
+  pushSolution (_:status:_:path)
+    | "courses/" `T.isPrefixOf` T.pack path && ".bytes" `T.isSuffixOf` T.pack path = case status of
+        '?' -> doPush path
+        'M' -> doPush path
+        ' ' -> pure ()
+        _ -> putStrLn $ "Ignoring path: " <> show status <> " " <> show path
   pushSolution _ = pure ()
-  doPush (T.unpack -> fp) = do
+  doPush fp = do
     putStrLn $ "[+] Submiting " <> fp
     bytes <- T.strip <$> T.readFile fp
     resp <- API.communicate bytes
