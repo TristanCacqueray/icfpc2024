@@ -2,7 +2,7 @@
 
 module LambdaMan.Pictures where
 
-import RIO hiding (Map, map)
+import RIO
 
 import LambdaMan.Types
 
@@ -30,8 +30,8 @@ legalStep x y = Translate x y let z = 0.2 in Color (withAlpha 0.5 green) do Poly
 backgroundColour :: Color
 backgroundColour = greyN 0
 
-pictureOfMap :: Map -> Picture
-pictureOfMap Map {..} = (Scale bigness bigness . Translate (-width / 2) (-height / 2)) do
+pictureOfBoard :: Board -> Picture
+pictureOfBoard Board {..} = (Scale bigness bigness . Translate (-width / 2) (-height / 2)) do
   Pictures
     [ area size
     , (Pictures . fmap drawTile . assocs) array

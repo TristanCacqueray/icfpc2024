@@ -52,7 +52,7 @@ mainMain =
       , Subcommand "pull-puzzles" "fetch all the puzzles" $
           pure mainPull
       , Subcommand "push-solutions" "submit all new solutions" $ pure mainPush
-      , Subcommand "lambdaman-draw-map" "draw a map for LambdaMan" $ pure LambdaMan.drawMap <*> argumentWith auto "LEVEL"
+      , Subcommand "lambdaman-draw-map" "draw a map for LambdaMan" $ pure LambdaMan.drawBoard <*> argumentWith auto "LEVEL"
       ]
 
 -- | Submit any modified files in `courses/%s/%d.bytes` and stage them with `git add`.
