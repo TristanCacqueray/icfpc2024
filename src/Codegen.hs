@@ -15,9 +15,9 @@ toTerm res = case res.repeatSplit of
   Nothing -> rawStr
   Just (longest, xs) ->
     let packedExpr = EBinary '$' (ELam 1 (mkBody xs)) (EStr longest)
-     in if T.length (printer packedExpr) < T.length res.original
-           then packedExpr
-           else rawStr
+    in  if T.length (printer packedExpr) < T.length res.original
+          then packedExpr
+          else rawStr
  where
   rawStr = EStr res.original
   mkBody [] = error "empty body!"
@@ -28,10 +28,10 @@ toTerm res = case res.repeatSplit of
     Nothing -> EVar 1
     Just txt -> EStr txt
 
-data SplitResult = SplitResult {
-  original :: Text,
-  repeatSplit :: Maybe (Text, [Maybe Text])
-                               }
+data SplitResult = SplitResult
+  { original :: Text
+  , repeatSplit :: Maybe (Text, [Maybe Text])
+  }
 
 splitLongest :: Text -> SplitResult
 splitLongest txt = SplitResult txt repeatSplit
