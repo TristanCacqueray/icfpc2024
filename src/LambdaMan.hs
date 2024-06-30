@@ -13,6 +13,7 @@ import RIO.Set qualified as Set
 import RIO.State
 import RIO.Text qualified as Text
 
+import Codegen (pack)
 import LambdaMan.Pictures
 import LambdaMan.Types
 import ProgCon.Eval
@@ -221,7 +222,7 @@ expressionToBoard expression = case evalExpr expression of
 
 solutionToExpression :: Natural -> ByteArray -> Expr
 solutionToExpression nr bs =
-  EStr
+  Codegen.pack
     . Text.pack
     . unwords
     $ ["solve", "lambdaman" <> show nr, concatMap show $ pathToDirections bs]
