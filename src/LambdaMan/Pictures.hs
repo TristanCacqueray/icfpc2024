@@ -3,6 +3,7 @@
 module LambdaMan.Pictures where
 
 import RIO
+import RIO.ByteString qualified as ByteArray
 
 import LambdaMan.Types
 
@@ -31,13 +32,13 @@ backgroundColour :: Color
 backgroundColour = greyN 0
 
 pictureOfBoard :: Board -> Picture
-pictureOfBoard Board {..} = (Scale bigness bigness . Translate (-width / 2) (-height / 2)) do
+pictureOfBoard Board {..} = do
   Pictures
     [ area size
     , (Pictures . fmap drawTile . assocs) array
     ]
  where
-  size@(V2 width height) = (fmap fromIntegral . snd . bounds) array
+  size = (fmap fromIntegral . snd . bounds) array
 drawTile :: (V2 Int, Spot) -> Picture
 drawTile (fmap fromIntegral -> V2 x y, entity) = case entity of
   Floor -> Blank
@@ -45,3 +46,27 @@ drawTile (fmap fromIntegral -> V2 x y, entity) = case entity of
   Me -> hero x y
   FootStep -> footstep x y
   LegalStep -> legalStep x y
+
+pictureOfAnimationState :: AnimationState -> Picture
+pictureOfAnimationState AnimationState {..} =
+  (Scale bigness bigness . Translate (-width / 2) (-height / 2) . Pictures)
+    [pictureOfBoard board, pictureOfSolution board.me (ByteArray.unpack solution)]
+ where
+  V2 width height = (fmap fromIntegral . snd . bounds) board.array
+
+pictureOfSolution :: V2 Int -> [Word8] -> Picture
+pictureOfSolution =
+  fmap Pictures . fix \recurse me -> \case
+    [] -> []
+    (x : xs) ->
+      let
+        direction = directionOfWord8 x
+        delta = vectorOfDirection direction
+        newMe = me + delta
+      in
+        smallArrow me delta : recurse newMe xs
+
+smallArrow :: V2 Int -> V2 Int -> Picture
+smallArrow (fmap fromIntegral -> V2 x y) (fmap fromIntegral -> V2 0 dy) = Translate x (y + 0.5 * dy) do Color (withAlpha 0.33 red) do rectangleSolid 0.2 1
+smallArrow (fmap fromIntegral -> V2 x y) (fmap fromIntegral -> V2 dx 0) = Translate (x + 0.5 * dx) y do Color (withAlpha 0.33 red) do rectangleSolid 1 0.2
+smallArrow _ _ = error "Impossible delta movement."

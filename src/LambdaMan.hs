@@ -1,46 +1,59 @@
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE NoPartialTypeSignatures #-}
+{-# OPTIONS_GHC -Wpartial-type-signatures #-}
 
 module LambdaMan where
 
-import RIO
+import RIO hiding (fold)
+import RIO.ByteString qualified as ByteArray
 import RIO.List qualified as List
-import Prelude qualified
+import RIO.List.Partial qualified as Partial
+import RIO.Map qualified as Map
+import RIO.State
+import RIO.Text qualified as Text
 
 import LambdaMan.Pictures
 import LambdaMan.Types
+import ProgCon.Eval
 import ProgCon.Parser
 
+import Control.Comonad.Cofree (Cofree)
+import Control.Comonad.Trans.Cofree (CofreeF ((:<)))
 import Data.Array hiding (array, index)
 import Data.Array.MArray hiding (index)
 import Data.Array.ST.Safe hiding (index)
+import Data.Functor.Compose
+import Data.Functor.Foldable
+import Data.List.Extra qualified as List
+import Data.Text.IO qualified as Text
 import Graphics.Gloss qualified as Gloss
 import Graphics.Gloss.Interface.Pure.Simulate qualified as Gloss
 import Linear
-import RIO.List.Partial qualified as Partial
-
-solveExpression :: Expr -> Either String Expr
-solveExpression = (const . Right) (EStr "LLLDURRRUDRRURR")
-
-validateExpression :: Expr -> Either String Float
-validateExpression = const (Left "Not implemented.")
 
 readBoard :: FilePath -> IO Board
 readBoard path = do
-  array <- (fmap makeBoardArray . Prelude.readFile) path
-  let me = (fst . fromMaybe (error "There should be a Lambda Man somewhere!") . List.find (\(_, spot) -> spot == Me) . assocs) array
-  pure Board {..}
+  text <- Text.readFile path
+  pure do makeBoard text
 
-makeBoardArray :: String -> Array (V2 Int) Spot
-makeBoardArray string = runSTArray do
+makeBoardArray :: Text -> Array (V2 Int) Spot
+makeBoardArray text = runSTArray do
   board <- newArray (V2 0 0, V2 (width - 1) (height - 1)) Floor
   forM_ (rows `zip` [0 ..]) \(row, j) ->
     forM_ (row `zip` [0 ..]) \(character, i) ->
       writeArray board (V2 i j) (meaning character)
   pure board
  where
-  rows = lines string
+  rows = (fmap Text.unpack . Text.lines) text
   height = List.genericLength rows
   width = Partial.maximum (0 :| fmap List.genericLength rows)
+
+makeBoard :: Text -> Board
+makeBoard text =
+  let
+    array = makeBoardArray text
+    me = (fst . fromMaybe (error "There should be a Lambda Man somewhere!") . List.find (\(_, spot) -> spot == Me) . assocs) array
+  in
+    Board {..}
 
 meaning :: Char -> Spot
 meaning = \case
@@ -52,18 +65,20 @@ meaning = \case
 drawBoard :: Natural -> IO ()
 drawBoard level = do
   board <- readBoard ("examples/lambdaman/" <> show level <> "/problem.string")
-  Gloss.simulate Gloss.FullScreen backgroundColour 4 (markLegalSteps board) pictureOfBoard animateBoard
+  let spanningTree = computeSpanningTree board
+  let solution = computeOptimalTraversal spanningTree
+  -- Gloss.display Gloss.FullScreen backgroundColour  (pictureOfAnimationState AnimationState {..})
+  Gloss.simulate Gloss.FullScreen backgroundColour 4 AnimationState {..} pictureOfAnimationState animation
 
-animateBoard :: Gloss.ViewPort -> Float -> Board -> Board
-animateBoard _ _ board = case legalSteps board of
-  [] -> board
-  (direction : _) -> (markLegalSteps . fromMaybe (error "Legal step failed!") . flip makeStep direction . unmarkLegalSteps) board
-
-vectorOfDirection :: Direction -> V2 Int
-vectorOfDirection U = V2 0 (-1)
-vectorOfDirection R = V2 1 0
-vectorOfDirection D = V2 0 1
-vectorOfDirection L = V2 (-1) 0
+animation :: Gloss.ViewPort -> Float -> AnimationState -> AnimationState
+animation _ _ currentAnimationState@AnimationState {..} = case ByteArray.uncons solution of
+  Nothing -> currentAnimationState
+  Just (directionOfWord8 -> direction, solutionTail) ->
+    AnimationState
+      { board = (markLegalSteps . fromMaybe (error "Legal step failed!") . flip makeStep direction . unmarkLegalSteps) board
+      , solution = solutionTail
+      , ..
+      }
 
 (?) :: (Ix index) => Array index value -> index -> Maybe value
 array ? index
@@ -73,13 +88,18 @@ infixl 9 ?
 
 canStepOnThis :: Spot -> Bool
 canStepOnThis = \case
+  Wall -> False
+  _ -> True
+
+canStepOnThisWithoutRetracing :: Spot -> Bool
+canStepOnThisWithoutRetracing = \case
   Floor -> True
   LegalStep -> True
   _ -> False
 
 makeStep :: Board -> Direction -> Maybe Board
 makeStep Board {..} direction =
-  let newMe = (me + vectorOfDirection direction)
+  let newMe = me + vectorOfDirection direction
   in  case array ? newMe of
         Just tile
           | canStepOnThis tile ->
@@ -96,6 +116,19 @@ makeStep Board {..} direction =
 
 legalSteps :: Board -> [Direction]
 legalSteps board = filter (isJust . makeStep board) [minBound .. maxBound]
+
+readArraySafely :: (Ix index, MArray array value monad) => array index value -> index -> monad (Maybe value)
+readArraySafely array index = do
+  boundsOfArray <- getBounds array
+  if inRange boundsOfArray index
+    then fmap Just do readArray array index
+    else pure Nothing
+
+legalStepsWithoutRetracing :: STArray lock (V2 Int) Spot -> V2 Int -> ST lock [Direction]
+legalStepsWithoutRetracing array me = flip filterM [minBound .. maxBound] \direction -> do
+  let index = me + vectorOfDirection direction
+  tile <- readArraySafely array index
+  pure do maybe False canStepOnThisWithoutRetracing tile
 
 markLegalSteps :: Board -> Board
 markLegalSteps board@Board {..} =
@@ -114,3 +147,100 @@ unmarkLegalSteps board@Board {..} =
         forM_ (legalSteps board) \direction -> writeArray mutableArray (me + vectorOfDirection direction) Floor
         pure mutableArray
     }
+
+type gunctor . functor = Compose gunctor functor
+infixr 9 .
+
+unfoldPaths :: V2 Int -> (StateT (STArray lock (V2 Int) Spot) (ST lock) . CofreeF (Map Direction) (V2 Int)) (V2 Int)
+unfoldPaths me = Compose do
+  mutableArray <- get
+  steps <- lift do legalStepsWithoutRetracing mutableArray me
+  let ways = flip fmap steps \step -> (step, me + vectorOfDirection step)
+  lift do writeArray mutableArray me FootStep
+  pure do me :< Map.fromList ways
+
+unfoldWithEffects
+  :: (Recursive recursive, Corecursive recursive, Traversable (Base recursive), Monad effect)
+  => (carrier -> (effect . Base recursive) carrier)
+  -> carrier
+  -> effect recursive
+unfoldWithEffects = refold sequencer
+ where
+  sequencer
+    :: (Corecursive recursive, Traversable (Base recursive), Monad effect)
+    => Compose effect (Base recursive) (effect recursive)
+    -> effect recursive
+  sequencer = fmap embed . (=<<) sequence . getCompose
+
+unfoldSpanningTree :: V2 Int -> StateT (STArray lock (V2 Int) Spot) (ST lock) (Cofree (Map Direction) (V2 Int))
+unfoldSpanningTree = unfoldWithEffects unfoldPaths
+
+computeSpanningTree :: Board -> Cofree (Map Direction) (V2 Int)
+computeSpanningTree Board {..} = runST do
+  starray <- thaw array
+  evalStateT statefulSpanningTree starray
+ where
+  statefulSpanningTree = unfoldSpanningTree me :: StateT (STArray lock1 (V2 Int) Spot) (ST lock1) (Cofree (Map Direction) (V2 Int))
+
+reversePath :: ByteArray -> ByteArray
+reversePath = ByteArray.reverse . ByteArray.map (word8OfDirection . reverseDirection . directionOfWord8)
+
+retractPaths :: [ByteArray] -> [ByteArray]
+retractPaths = fix \recurse -> \case
+  [] -> []
+  (path : paths) -> path : reversePath path : recurse paths
+
+pathToDirectionVectors :: ByteArray -> [V2 Int]
+pathToDirectionVectors = fmap (vectorOfDirection . directionOfWord8) . ByteArray.unpack
+
+pathToDirections :: ByteString -> [Direction]
+pathToDirections = fmap directionOfWord8 . ByteArray.unpack
+
+directionsToPath :: [Direction] -> ByteArray
+directionsToPath = ByteArray.pack . fmap word8OfDirection
+
+computeOptimalTraversal :: Cofree (Map Direction) anything -> ByteArray
+computeOptimalTraversal = fold \(_ :< ways) ->
+  let
+    sorted = (List.sortOn (ByteArray.length . snd) . Map.toList) ways
+    attached = fmap (uncurry attachPathInDirection) sorted
+  in
+    concatenatePaths attached
+ where
+  attachPathInDirection direction path = word8OfDirection direction `ByteArray.cons` path
+  concatenatePaths paths = case List.unsnoc paths of
+    Nothing -> ByteArray.empty
+    Just (otherPaths, longestPath) -> ByteArray.concat (retractPaths otherPaths) <> longestPath
+
+expressionToBoard :: Expr -> Board
+expressionToBoard expression = case evalExpr expression of
+  Right (EStr text) -> makeBoard text
+  Left errorMessage -> error errorMessage
+  Right otherExpression -> error (show otherExpression)
+
+solutionToExpression :: ByteArray -> Expr
+solutionToExpression = EStr . Text.pack . concatMap show . pathToDirections
+
+solve :: Board -> ByteArray
+solve = computeOptimalTraversal . computeSpanningTree
+
+traceSolution :: ByteArray -> [V2 Int]
+traceSolution = List.scanl (+) 0 . pathToDirectionVectors
+
+validateSolution :: Board -> ByteArray -> Either String Float
+validateSolution Board {..} solution = case (filter (\spot -> not (spot == Wall || spot == FootStep)) . elems) filledArray of
+  [] -> Right do 100 / fromIntegral (ByteArray.length solution)
+  skippedSpots -> Left do show skippedSpots
+ where
+  filledArray :: Array (V2 Int) Spot
+  filledArray = runSTArray do
+    mutableArray <- thaw array
+    forM_ (traceSolution solution) \indexAtZero ->
+      let index = indexAtZero + me in writeArray mutableArray index FootStep
+    pure mutableArray
+
+solveExpression :: Expr -> Either String Expr
+solveExpression = Right . solutionToExpression . solve . expressionToBoard
+
+validateExpression :: Expr -> Either String Float
+validateExpression expression = let board = expressionToBoard expression in validateSolution board (solve board)

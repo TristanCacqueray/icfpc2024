@@ -1,6 +1,7 @@
 module Main where
 
 import RIO
+import RIO.ByteString qualified as ByteArray
 import RIO.ByteString.Lazy qualified as Bytes
 import RIO.Char
 import RIO.List.Partial qualified as Partial
@@ -19,6 +20,7 @@ import Test.Tasty.Golden
 import Test.Tasty.QuickCheck
 
 import LambdaMan qualified
+import LambdaMan.Types qualified as LambdaMan
 import ProgCon.API
 import ProgCon.Eval
 import ProgCon.Parser
@@ -60,8 +62,29 @@ fastChecks = do
       evalExpr
         (EBinary '$' (EBinary '$' (ELam 2 (ELam 3 (EVar 2))) (EBinary '.' (EStr "Hello") (EStr " World!"))) (EInt 42))
         === Right (EStr "Hello World!")
+  testWriter "lambdaman" do
+    writeProperty
+      "path reverse"
+      \(LambdaMan.directionsToPath -> path) ->
+        let retractedPath = LambdaMan.pathToDirectionVectors (path <> LambdaMan.reversePath path)
+        in  sum retractedPath === 0
+    writeProperty
+      "substring of path reverse"
+      \(LambdaMan.directionsToPath -> path) ->
+        let l = ByteArray.length path
+        in  \((`modulo` l) -> n) ((`modulo` l) -> m) ->
+              let substring = (ByteArray.drop (min m n) . ByteArray.take (max m n)) path
+                  reversedSubstring = (ByteArray.drop (min (l - m) (l - n)) . ByteArray.take (max (l - m) (l - n))) (LambdaMan.reversePath path)
+                  retractedSubstring = LambdaMan.pathToDirectionVectors (substring <> reversedSubstring)
+              in  counterexample (show (m, n, reversedSubstring)) (sum retractedSubstring === 0)
+    writeProperty "retract paths" \(fmap LambdaMan.directionsToPath -> paths) ->
+      (sum . LambdaMan.pathToDirectionVectors . ByteArray.concat . LambdaMan.retractPaths) paths === 0
   testWriter "solutions" do
     forM_ problems fastCheckProblem
+
+modulo :: (Integral a) => a -> a -> a
+modulo x 0 = 0
+modulo x y = mod x y
 
 fastCheckProblem :: ProblemDefinition -> Writer ([TestTree] -> [TestTree]) ()
 fastCheckProblem ProblemDefinition {..} =
@@ -235,6 +258,10 @@ instance Arbitrary AppropriateEncodedText where
     text <- arbitrary
     pure do AppropriateEncodedText (Text.filter (\character -> 33 <= ord character && ord character <= 126) text)
   shrink = coerce (shrink :: Text -> [Text])
+
+instance Arbitrary LambdaMan.Direction where
+  arbitrary = arbitraryBoundedEnum
+  shrink = shrinkBoundedEnum
 
 checkCommunication :: String -> String -> IO Expr -> Writer ([TestTree] -> [TestTree]) ()
 checkCommunication problem task getExpression = sequentialTestWriter task do

@@ -86,6 +86,9 @@ library
                      , array
                      , gloss
                      , linear
+                     , free
+                     , recursion-schemes
+                     , data-fix
 
   exposed-modules:     ProgCon
                      , ProgCon.API
