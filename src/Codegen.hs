@@ -5,13 +5,21 @@ import Data.Text qualified as T
 import RIO
 
 import ProgCon.Parser
+import ProgCon.Printer
 
 pack :: Text -> Expr
 pack = toTerm . splitLongest
 
-toTerm :: (Text, [Maybe Text]) -> Expr
-toTerm (longest, xs) = EBinary '$' (ELam 1 (mkBody xs)) (EStr longest)
+toTerm :: SplitResult -> Expr
+toTerm res = case res.repeatSplit of
+  Nothing -> rawStr
+  Just (longest, xs) ->
+    let packedExpr = EBinary '$' (ELam 1 (mkBody xs)) (EStr longest)
+     in if T.length (printer packedExpr) < T.length res.original
+           then packedExpr
+           else rawStr
  where
+  rawStr = EStr res.original
   mkBody [] = error "empty body!"
   mkBody [i] = itemTerm i
   mkBody (i : is) = EBinary '.' (itemTerm i) (mkBody is)
@@ -20,11 +28,17 @@ toTerm (longest, xs) = EBinary '$' (ELam 1 (mkBody xs)) (EStr longest)
     Nothing -> EVar 1
     Just txt -> EStr txt
 
-splitLongest :: Text -> (Text, [Maybe Text])
-splitLongest txt
-  | T.length longest > 3 = (longest, removeLongest [] txt)
-  | otherwise = (longest, [])
+data SplitResult = SplitResult {
+  original :: Text,
+  repeatSplit :: Maybe (Text, [Maybe Text])
+                               }
+
+splitLongest :: Text -> SplitResult
+splitLongest txt = SplitResult txt repeatSplit
  where
+  repeatSplit
+    | T.length longest > 3 = Just (longest, removeLongest [] txt)
+    | otherwise = Nothing
   (T.unpack -> x, T.unpack -> y) = T.splitAt (T.length txt `div` 2) txt
   longest = T.pack $ longestSubstring x y
 
