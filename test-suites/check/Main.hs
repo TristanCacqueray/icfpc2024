@@ -19,6 +19,7 @@ import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Text ()
 import Test.Tasty
 import Test.Tasty.Golden
+import Test.Tasty.Ingredients.Rerun
 import Test.Tasty.QuickCheck
 
 import LambdaMan (pathToDirections)
@@ -309,7 +310,7 @@ checkCommunication problem task getExpression = sequentialTestWriter task do
   rootPath = "examples" </> problem </> task
 
 writerMain :: Writer ([TestTree] -> [TestTree]) () -> IO ()
-writerMain = defaultMain . testGroup "main" . ($ []) . execWriter
+writerMain = defaultMainWithRerun . testGroup "main" . ($ []) . execWriter
 
 testWriter :: TestName -> Writer ([TestTree] -> [TestTree]) () -> Writer ([TestTree] -> [TestTree]) ()
 testWriter name = write . testGroup name . ($ []) . execWriter

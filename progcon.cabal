@@ -124,4 +124,6 @@ test-suite  checks
                         , filepath
                         , quickcheck-instances
                         , text
+                        , tasty-rerun
             default-extensions: NoImplicitPrelude
+            ghc-options: -threaded

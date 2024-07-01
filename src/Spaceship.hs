@@ -8,6 +8,9 @@ import Data.Attoparsec.Text qualified as P
 import GHC.Records (HasField (getField))
 import Geomancy.IVec2
 import RIO
+import RIO.List qualified as List
+import RIO.List.Partial qualified as Partial
+import RIO.Map qualified as Map
 import RIO.Text qualified as Text
 
 import ProgCon.Eval
@@ -48,8 +51,23 @@ idist p t = dist.x + dist.y
 fdist :: IVec2 -> IVec2 -> Float
 fdist p q = sqrt $ fromIntegral (q.x - p.x) ** 2 + fromIntegral (q.y - p.y) ** 2
 
+solve₂ :: [IVec2] -> String
+solve₂ targets = solveRecursively 3 0 initialShip targets
+
+solveRecursively :: Word -> Int -> Ship -> [IVec2] -> String
+solveRecursively _ _ _ [] = ""
+solveRecursively lookahead awareness ship (target : targets) =
+  let
+    course : _ = predictRoute lookahead (target : take awareness targets) ship
+    newShip = head (forecast ship [course])
+  in
+    thrustChar course : solveRecursively lookahead awareness newShip (if target == newShip.pos then targets else target : targets)
+
 solve :: [IVec2] -> String
-solve = go [] initialShip
+solve targets = (Partial.minimumBy (compare `on` length) . fmap ($ targets)) [solve₂ . optimizeOrder]
+
+solve₁ :: [IVec2] -> String
+solve₁ = go [] initialShip
  where
   go acc _ship [] = concat (reverse acc)
   go acc ship (target : rest) = go (thrusts : acc) newShip rest
@@ -208,6 +226,36 @@ coordP = do
   i2 <- P.signed P.decimal
   P.skipSpace
   pure (ivec2 i1 i2)
+
+directionVectors :: [IVec2]
+directionVectors = fmap charVel "123456789"
+
+chebyshev :: (Num number) => IVec2 -> IVec2 -> number
+chebyshev v₁ v₂ = fromIntegral do max (abs (v₂.x - v₁.x)) (abs (v₂.y - v₁.y))
+
+-- | Given a travel plan, tell where we shall be over time.
+forecast :: Ship -> [IVec2] -> [Ship]
+forecast Ship {..} travelPlan =
+  let velocities = scanl (+) vel travelPlan
+      positions = scanl (+) pos (tail velocities)
+  in  tail (zipWith (\pos vel -> Ship {..}) positions velocities)
+
+-- | Evaluate the minimal distance to each of the given targets over given
+-- number of steps given all possible travel plans, pick the best.
+predictRoute :: Word -> [IVec2] -> Ship -> [IVec2]
+predictRoute horizon targets ship = head (List.sortOn (cost ship targets) (travelPlans horizon))
+
+cost :: Ship -> [IVec2] -> [IVec2] -> Float
+cost ship targets = minimum . fmap (weightedSumOfDistances targets) . forecast ship
+
+travelPlans :: Word -> [[IVec2]]
+travelPlans horizon = iterate ((=<<) \list -> fmap (: list) directionVectors) [[]] Partial.!! fromIntegral horizon
+
+weightedSumOfDistances :: [IVec2] -> Ship -> Float
+weightedSumOfDistances targets ship = sum (zipWith (*) (weights (List.genericLength targets)) (fmap (chebyshev ship.pos) targets))
+
+weights :: Word -> [Float]
+weights number = fmap (((1 / 2) **) . fromIntegral) [1 .. number]
 
 solveExpression :: Natural -> Expr -> Either String Expr
 solveExpression nr inputExpression = do
