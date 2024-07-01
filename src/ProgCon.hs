@@ -87,6 +87,8 @@ mainPull = do
     syncCourse
     [ ("lambdaman", 21)
     , ("spaceship", 25)
+    , ("3d", 12)
+    , ("efficiency", 13)
     ]
  where
   syncCourse (name, count) = do
@@ -95,18 +97,14 @@ mainPull = do
    where
     dir = "courses/" <> name <> "/"
     syncPuzzle nr = do
-      let fp = dir <> show nr <> ".txt"
+      let fp = dir <> show nr <> ".expr"
       doesFileExist fp >>= \case
         True -> pure ()
         False -> do
           putStrLn $ "Syncing " <> fp <> ", query \"get " <> name <> show nr <> "\""
-          handleQuery (T.pack $ "get " <> name <> show nr) >>= \case
-            Left expr -> T.putStrLn $ "Not string:" <> T.take 128 (T.toStrict $ Pretty.pShow expr)
-            -- eval response
-            -- case Eval.evalExpr mempty expr of
-            -- Right (Parser.EStr txt) -> T.writeFile fp txt
-            -- res -> T.putStrLn "Not string:" >> Pretty.pPrint res
-            Right txt -> T.writeFile fp txt
+          txt <- rawQuery (T.pack $ "get " <> name <> show nr)
+          T.writeFile fp txt
+
 
 solveSpaceship :: Int -> IO ()
 solveSpaceship nr = do
@@ -155,6 +153,9 @@ mainParse message = case Parser.parseExpr message of
 
 mainEncode :: Text -> IO ()
 mainEncode message = T.putStrLn (Parser.encodeString message)
+
+rawQuery :: Text -> IO Text
+rawQuery message = API.communicate $ Printer.print $ EStr message
 
 handleQuery :: Text -> IO (Either Expr Text)
 handleQuery message = do
