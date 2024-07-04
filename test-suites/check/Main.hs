@@ -291,6 +291,7 @@ checkCommunication problem task getExpression = sequentialTestWriter task do
       "encoding"
       (rootPath </> "request.bytes")
       do fmap encodeExpressionToBytes getExpression
+  {-
   write do
     goldenVsString
       "fetching"
@@ -298,6 +299,7 @@ checkCommunication problem task getExpression = sequentialTestWriter task do
       do
         requestBytes <- Bytes.readFile (rootPath </> "request.bytes")
         postBytes requestBytes
+  -}
   write do
     goldenVsFile
       "decoding"

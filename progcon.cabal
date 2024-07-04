@@ -83,6 +83,7 @@ library
                      , temporary
                      , geomancy
                      , string-similarity
+                     , suffixtree
                      , array
                      , gloss
                      , linear

@@ -1,6 +1,9 @@
 module Codegen where
 
-import Data.List.CommonSubstring
+import Data.Foldable1
+import Data.List.NonEmpty qualified as NE
+import Data.Semigroup
+import Data.SuffixTree
 import Data.Text qualified as T
 import RIO
 
@@ -39,8 +42,7 @@ splitLongest txt = SplitResult txt repeatSplit
   repeatSplit
     | T.length longest > 3 = Just (longest, removeLongest [] txt)
     | otherwise = Nothing
-  (T.unpack -> x, T.unpack -> y) = T.splitAt (T.length txt `div` 2) txt
-  longest = T.pack $ longestSubstring x y
+  longest = T.pack $ longestRepeatedNonOverlapping (T.unpack txt)
 
   removeLongest acc rest = case T.breakOn longest rest of
     ("", "") -> reverse acc
@@ -49,3 +51,18 @@ splitLongest txt = SplitResult txt repeatSplit
       (_, remaining) -> case last' of
         "" -> removeLongest (Nothing : acc) remaining
         _ -> removeLongest (Nothing : Just last' : acc) remaining
+
+-- | By @meooow - https://discourse.haskell.org/t/challenge-finding-the-longest-repeated-substring/9890/9
+longestRepeatedNonOverlapping :: String -> String
+longestRepeatedNonOverlapping s =
+  case go 0 [] (construct (s ++ "\0")) of (,,) (Max (Arg _ s')) _ _ -> s'
+ where
+  go !len _ Leaf = (,,) (Max (Arg 0 "")) (Just (Min len)) (Just (Max len))
+  go len pieces (Node es) = case foldMap1' f (NE.fromList es) of
+    (,,) best min_@(Just (Min mnx)) max_@(Just (Max mxx)) ->
+      let len' = min len (mxx - mnx) -- no overlapping
+          substr = take len' (concat (reverse pieces))
+      in  (,,) (best <> Max (Arg len' substr)) min_ max_
+    _ -> error "impossible"
+   where
+    f (p, n) = go (len + length (prefix p)) (prefix p : pieces) n
